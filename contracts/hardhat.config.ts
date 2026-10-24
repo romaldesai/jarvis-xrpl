@@ -36,7 +36,8 @@ const config: HardhatUserConfig = {
     settings: { optimizer: { enabled: true, runs: 200 }, evmVersion: "paris" },
   },
   networks: {
-    hardhat: {},
+    // HARDHAT_CHAIN_ID=1449000 lets `hardhat node` impersonate the testnet chain ID for script rehearsals.
+    hardhat: { chainId: Number(process.env.HARDHAT_CHAIN_ID || 31337) },
     // Local dev chain. Uses the .env agent key when present (funded by scripts/local-demo.sh).
     localhost: { url: "http://127.0.0.1:8545", chainId: 31337, ...(isHexKey(key) ? { accounts } : {}) },
     xrplevmTestnet: {

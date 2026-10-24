@@ -9,7 +9,10 @@
     "deploy:local": "hardhat run scripts/deploy.ts --network hardhat",
     "deploy:testnet": "hardhat run scripts/deploy.ts --network xrplevmTestnet",
     "channel:local": "hardhat run scripts/open-channel.ts --network hardhat",
-    "channel:testnet": "hardhat run scripts/open-channel.ts --network xrplevmTestnet"
+    "channel:testnet": "hardhat run scripts/open-channel.ts --network xrplevmTestnet",
+    "check:testnet": "hardhat run scripts/check.ts --network xrplevmTestnet",
+    "prove:overcap": "hardhat run scripts/prove-overcap.ts --network xrplevmTestnet",
+    "prove:overcap:local": "hardhat run scripts/prove-overcap.ts --network localhost"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",

@@ -20,7 +20,7 @@ contract PaymentLedger is IPaymentLedger, EIP712, Ownable, Pausable, ReentrancyG
     using SafeERC20 for IERC20;
 
     bytes32 public constant VOUCHER_TYPEHASH =
-        keccak256("Voucher(uint256 channelId,uint256 cumulativeAmount,bytes32 ref,uint256 expiry)");
+        keccak256("Voucher(uint256 channelId,uint256 cumulativeAmount,uint256 nonce,uint256 deadline,bytes32 ref)");
 
     struct Channel {
         address funder;
@@ -29,6 +29,7 @@ contract PaymentLedger is IPaymentLedger, EIP712, Ownable, Pausable, ReentrancyG
         uint256 cap;
         uint256 redeemed;
         uint256 settled;
+        uint256 lastNonce;
         bool closed;
     }
 
@@ -46,6 +47,7 @@ contract PaymentLedger is IPaymentLedger, EIP712, Ownable, Pausable, ReentrancyG
     error NonMonotonic();
     error OverCap();
     error Expired();
+    error NonceUsed();
     error NotFunder();
 
     constructor(IERC20 token_, IParticipantRegistry registry_, address admin)
@@ -71,6 +73,7 @@ contract PaymentLedger is IPaymentLedger, EIP712, Ownable, Pausable, ReentrancyG
             cap: cap,
             redeemed: 0,
             settled: 0,
+            lastNonce: 0,
             closed: false
         });
         token.safeTransferFrom(msg.sender, address(this), cap);
@@ -78,16 +81,19 @@ contract PaymentLedger is IPaymentLedger, EIP712, Ownable, Pausable, ReentrancyG
     }
 
     function hashVoucher(Voucher calldata v) public view returns (bytes32) {
-        return _hashTypedDataV4(keccak256(abi.encode(VOUCHER_TYPEHASH, v.channelId, v.cumulativeAmount, v.ref, v.expiry)));
+        return _hashTypedDataV4(keccak256(abi.encode(VOUCHER_TYPEHASH, v.channelId, v.cumulativeAmount, v.nonce, v.deadline, v.ref)));
     }
 
     /// @notice Verify the agent's signature and advance the redeemed watermark.
+    /// Rejects: unknown/closed channel, expired, bad/wrong-chain signature, replayed nonce,
+    /// non-monotonic amount, over-cap, revoked agent.
     function redeemVoucher(Voucher calldata v, bytes calldata signature) external whenNotPaused {
         Channel storage c = channels[v.channelId];
         if (c.agent == address(0)) revert UnknownChannel();
         if (c.closed) revert ChannelIsClosed();
-        if (v.expiry != 0 && block.timestamp > v.expiry) revert Expired();
+        if (block.timestamp > v.deadline) revert Expired();
         if (ECDSA.recover(hashVoucher(v), signature) != c.agent) revert BadSignature();
+        if (v.nonce <= c.lastNonce) revert NonceUsed();
         if (v.cumulativeAmount <= c.redeemed) revert NonMonotonic();
         if (v.cumulativeAmount > c.cap) revert OverCap();
         // Agent may be revoked after the channel opened: stop new redemptions immediately.
@@ -95,7 +101,8 @@ contract PaymentLedger is IPaymentLedger, EIP712, Ownable, Pausable, ReentrancyG
 
         uint256 delta = v.cumulativeAmount - c.redeemed;
         c.redeemed = v.cumulativeAmount;
-        emit VoucherRedeemed(v.channelId, v.cumulativeAmount, delta, v.ref);
+        c.lastNonce = v.nonce;
+        emit VoucherRedeemed(v.channelId, v.cumulativeAmount, delta, v.nonce, v.ref);
     }
 
     /// @notice Pay (redeemed - settled) to the bound payout address.

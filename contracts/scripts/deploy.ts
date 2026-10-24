@@ -1,66 +1,69 @@
-// Deploy MockRLUSD + ParticipantRegistry + PaymentLedger, register the agent (KYA),
-// and write public addresses to deployments/<network>.json. Never prints keys.
-//
-//   npx hardhat run scripts/deploy.ts --network xrplevmTestnet
-//
-// Env: AGENT_PRIVATE_KEY (deployer + agent), PAYOUT_ADDRESS. Optional RLUSD_ADDRESS to reuse a token.
+// Deploy MockRLUSD (unless RLUSD_ADDRESS is set) + ParticipantRegistry + PaymentLedger,
+// KYA-register the agent bound to PAYOUT_ADDRESS, write public data to deployments/<network>.json.
+//   npx hardhat run scripts/deploy.ts --network xrplevmTestnet      (REDEPLOY=1 to force)
 import { ethers, network } from "hardhat";
-import fs from "fs";
-import path from "path";
+import { assertChain, deploymentFile, isLocal, readDeployment, requireGas, txLink, txOverrides, writeDeployment } from "./lib";
 
 async function main() {
   const [deployer] = await ethers.getSigners();
   if (!deployer) throw new Error("No signer. Set AGENT_PRIVATE_KEY in .env (npm run wallet:new).");
-  const chainId = (await ethers.provider.getNetwork()).chainId;
-  if (chainId !== 31337n && chainId !== 1449000n) throw new Error(`Refusing: chainId ${chainId} is not XRPL EVM testnet (1449000)`);
-
-  const agent = deployer.address;
+  const chainId = await assertChain();
+  const existing = readDeployment();
+  if (existing.ledger && !isLocal() && process.env.REDEPLOY !== "1") {
+    console.log(`Already deployed (${deploymentFile()}): ledger ${existing.ledger}. Set REDEPLOY=1 to deploy fresh.`);
+    return;
+  }
   const payout = process.env.PAYOUT_ADDRESS && ethers.isAddress(process.env.PAYOUT_ADDRESS)
     ? process.env.PAYOUT_ADDRESS
-    : ["hardhat", "localhost"].includes(network.name) ? ethers.Wallet.createRandom().address : undefined;
+    : isLocal() ? ethers.Wallet.createRandom().address : undefined;
   if (!payout) throw new Error("Set PAYOUT_ADDRESS in .env (npm run wallet:new writes one).");
 
-  const bal = await ethers.provider.getBalance(deployer.address);
-  console.log(`network=${network.name} chainId=${chainId} deployer=${deployer.address} gasBalance=${ethers.formatEther(bal)} XRP`);
-  if (bal === 0n) throw new Error("Deployer has no gas. Fund it at https://faucet.xrplevm.org (testnet).");
+  console.log(`network=${network.name} chainId=${chainId} txType=${process.env.EVM_TX_TYPE || "legacy"}`);
+  await requireGas(deployer.address, "agent/deployer");
+  const ov = await txOverrides();
+  const decimals = Number(process.env.RLUSD_DECIMALS || 18);
 
   let tokenAddr = process.env.RLUSD_ADDRESS;
-  let tokenIsMock = false;
+  let rlusdIsMock = false;
+  const txs: Record<string, string> = {};
   if (!tokenAddr || !ethers.isAddress(tokenAddr)) {
-    const token = await ethers.deployContract("MockRLUSD", [deployer.address]);
+    const token = await (await ethers.getContractFactory("MockRLUSD", deployer)).deploy(deployer.address, decimals, ov);
     await token.waitForDeployment();
     tokenAddr = await token.getAddress();
-    tokenIsMock = true;
-    console.log(`MockRLUSD           ${tokenAddr}  tx ${token.deploymentTransaction()?.hash}`);
+    rlusdIsMock = true;
+    txs.deployMockRLUSD = token.deploymentTransaction()!.hash;
+    console.log(`MockRLUSD (${decimals}dp)   ${tokenAddr}  ${txLink(txs.deployMockRLUSD)}`);
+  } else if ((await ethers.provider.getCode(tokenAddr)) === "0x") {
+    throw new Error(`RLUSD_ADDRESS ${tokenAddr} has no code on this chain. Unset it to deploy MockRLUSD.`);
   }
-  const registry = await ethers.deployContract("ParticipantRegistry", [deployer.address]);
+  const registry = await (await ethers.getContractFactory("ParticipantRegistry", deployer)).deploy(deployer.address, ov);
   await registry.waitForDeployment();
-  console.log(`ParticipantRegistry ${await registry.getAddress()}  tx ${registry.deploymentTransaction()?.hash}`);
-  const ledger = await ethers.deployContract("PaymentLedger", [tokenAddr, await registry.getAddress(), deployer.address]);
+  txs.deployRegistry = registry.deploymentTransaction()!.hash;
+  console.log(`ParticipantRegistry ${await registry.getAddress()}  ${txLink(txs.deployRegistry)}`);
+  const ledger = await (await ethers.getContractFactory("PaymentLedger", deployer)).deploy(tokenAddr, await registry.getAddress(), deployer.address, ov);
   await ledger.waitForDeployment();
-  console.log(`PaymentLedger       ${await ledger.getAddress()}  tx ${ledger.deploymentTransaction()?.hash}`);
+  txs.deployLedger = ledger.deploymentTransaction()!.hash;
+  console.log(`PaymentLedger       ${await ledger.getAddress()}  ${txLink(txs.deployLedger)}`);
 
-  const reg = await registry.register(agent, payout, ethers.id("kya:xrp2india-agent-v1"));
+  const reg = await registry.register(deployer.address, payout, ethers.id("kya:xrp2india-agent-v1"), ov);
   await reg.wait();
-  console.log(`KYA register agent=${agent} payout=${payout} tx ${reg.hash}`);
+  txs.kyaRegister = reg.hash;
+  console.log(`KYA register agent=${deployer.address} payout=${payout}  ${txLink(reg.hash)}`);
 
-  const out = {
+  writeDeployment({
     network: network.name,
     chainId: Number(chainId),
     deployedAt: new Date().toISOString(),
-    agent,
+    agent: deployer.address,
     payout,
     rlusd: tokenAddr,
-    rlusdIsMock: tokenIsMock,
+    rlusdIsMock,
+    rlusdDecimals: rlusdIsMock ? decimals : Number(await (await ethers.getContractAt("MockRLUSD", tokenAddr)).decimals()),
     registry: await registry.getAddress(),
     ledger: await ledger.getAddress(),
-    txs: { register: reg.hash },
-  };
-  const dir = path.join(__dirname, "..", "deployments");
-  fs.mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, ["hardhat", "localhost"].includes(network.name) ? `${network.name}.local.json` : `${network.name}.json`);
-  fs.writeFileSync(file, JSON.stringify(out, null, 2) + "\n");
-  console.log(`wrote ${path.relative(process.cwd(), file)}`);
+    txs,
+  });
+  console.log(`wrote ${deploymentFile()}`);
 }
 
 main().catch((e) => {
