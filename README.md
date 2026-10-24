@@ -76,7 +76,7 @@ sequenceDiagram
 | --- | --- |
 | KYA: only verified agents transact; payout bound | `ParticipantRegistry.register/isVerified/payoutOf`, checked in `PaymentLedger.openChannel` (and again at redeem, so revocation bites immediately) |
 | Funded ASL: `openChannel()` locks RLUSD; `settled + redeemed ≤ cap` | `PaymentLedger.openChannel`, invariant `settled ≤ redeemed ≤ cap` tested |
-| EIP-712 vouchers: `redeemVoucher()` verifies sig, monotonic cumulative watermark, `VoucherRedeemed` | `PaymentLedger.redeemVoucher` (domain `AP4M PaymentLedger` v1, chainId, contract) |
+| EIP-712 vouchers: `redeemVoucher()` verifies sig, monotonic cumulative watermark, `VoucherRedeemed` | `PaymentLedger.redeemVoucher`. Domain `AP4M PaymentLedger` v1 + chainId + verifyingContract. Voucher `(channelId, cumulativeAmount, nonce, deadline, ref)`. Rejects expired / zero deadline, replayed or reused nonce, wrong chain, wrong ledger, non-monotonic, over cap, revoked agent |
 | Settlement: `settle()` pays `redeemed − settled`, `ClaimPaid` + `SettlementRecorded` | `PaymentLedger.settle` |
 
 ## What's real / what's simulated
@@ -87,8 +87,8 @@ sequenceDiagram
 | Approval gate → typed, single-use `ApprovedAction` | Real; rails refuse anything the gate did not mint |
 | EIP-712 voucher signing + on-chain verification | Real |
 | ParticipantRegistry / PaymentLedger on XRPL EVM testnet | Real contracts (ours, AP4M-spec-compatible) |
-| RLUSD | **MockRLUSD** (18 decimals, testnet faucet) until an official testnet RLUSD/AP4M address is confirmed |
-| FX rate | Live free API (`open.er-api.com`), static fallback (₹88.00) if unreachable |
+| RLUSD | **MockRLUSD** (`mRLUSD`, 18 decimals by default, labelled **"mock RLUSD"** everywhere). The docs' "testnet RLUSD" `0x2093…E1eD` has no code on testnet |
+| FX rate | Frankfurter (primary) → open.er-api (backup) → last good cached rate (<24h, with timestamp) → static **"Demo FX rate"** (₹88.00) |
 | Intent parsing | Deterministic regex always; optional Claude structured-output parser when `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` are set |
 | UPI payout to India | **SIMULATED** (screen only, clearly labelled) |
 | Fallback rail | Real native XRPL Testnet `Payment` (testnet XRP stands in for RLUSD at a fixed demo rate) |
@@ -112,7 +112,7 @@ Prerequisites: Node 20+ (22 recommended), git, macOS or Linux. No Foundry or nat
 ```bash
 git clone https://github.com/romaldesai/jarvis-xrpl.git && cd jarvis-xrpl
 npm install
-npm test                  # secret scan + 21 contract + 6 fallback + 48 agent tests
+npm test                  # secret scan + 25 contract + 6 fallback + 58 agent tests
 ```
 
 ### 2. Local demo, no testnet needed (1 command)
@@ -120,31 +120,59 @@ npm test                  # secret scan + 21 contract + 6 fallback + 48 agent te
 Real contracts and real EIP-712 vouchers on a local Hardhat chain:
 
 ```bash
-npm run demo:local        # headless: pays ₹5,000, then shows 3 guardrail denials + audit
+npm run demo:local        # headless: pays ₹5,000, 3 REJECTED paths, on-chain over-cap revert, audit
 npm run demo:local:web    # same chain, then opens the web app at http://127.0.0.1:3000
 ```
 
-### 3. XRPL EVM Sidechain testnet (the live demo)
+### 3. XRPL EVM Sidechain testnet: one command (Lane 1)
+
+Needs Node 22+. Run on your Mac; nothing secret is ever printed.
 
 ```bash
-cp .env.example .env              # once
-npm run wallet:new                # writes a throwaway agent key + payout address into .env (prints addresses only)
-# Fund the printed agent address with testnet XRP gas: https://faucet.xrplevm.org (Testnet, chain 1449000)
-npm run balances                  # confirm gas arrived
-npm run deploy:testnet            # MockRLUSD + ParticipantRegistry + PaymentLedger, KYA-register agent, open a 500 RLUSD channel
-npm run balances                  # shows channel cap / redeemed / settled
-npm run demo:headless             # asks y/N, then settles and prints explorer links
-npm run dev                       # web app at http://127.0.0.1:3000
+npm run testnet            # or: ./scripts/testnet-demo.sh --yes  (pre-approve for rehearsals)
 ```
 
-Addresses and tx hashes land in `contracts/deployments/xrplevmTestnet.json` (public data, safe to commit).
+What it does, in order (safe to re-run; finished steps are skipped):
 
-To fund the channel from the **Mastercard-registered funding wallet** `0xcBcc8c442d312D2D2b4B3d124d268fC235294e2C`, put its key in
-`FUNDER_PRIVATE_KEY` in your local `.env` (give it a little testnet gas too) before `npm run deploy:testnet`.
-Without it, the agent wallet funds the channel (demo fallback; printed clearly).
+1. `wallet:new`: creates a throwaway agent key + payout address in `.env` if missing (prints addresses only).
+2. Gas preflight: if the agent has 0 testnet XRP it stops and prints the faucet link
+   (`https://faucet.xrplevm.org`, Testnet, up to ~90 XRP). Fund it, wait a minute, re-run.
+3. Deploy MockRLUSD + ParticipantRegistry + PaymentLedger and KYA-register the agent → `contracts/deployments/xrplevmTestnet.json`
+   (`REDEPLOY=1` to force).
+4. Open a 500 mock-RLUSD channel (`REOPEN=1` to open another).
+5. Payment: "Send ₹5,000 to my mother" → y/N approval → `redeemVoucher` → `settle`, explorer links printed; then three
+   REJECTED paths: ₹50,000 over the cap, a non-allow-listed recipient, and the kill switch.
+6. On-chain REJECTED proof: an over-cap voucher submitted with a fixed gas limit is mined and reverts `OverCap`.
+7. Prints a **PASTE-BACK** block (contract addresses + tx hashes + explorer links, never keys).
+   `npm run proof -- --write` saves it to `docs/PROOF.md`.
+
+Individual steps if you prefer:
+
+```bash
+npm run wallet:new
+npm run check              # gas preflight with faucet links
+npm run deploy:testnet     # deploy + open channel
+npm run balances           # gas, mock RLUSD balances, channel cap/redeemed/settled/nonce
+npm run demo:headless      # payment + REJECTED paths
+npm run prove:overcap      # on-chain over-cap revert
+npm run proof              # paste-back block
+```
+
+Transactions are **legacy (type 0) with an explicit gasPrice** by default because some XRPL EVM testnet setups reject
+EIP-1559 type-2 txs; set `EVM_TX_TYPE=eip1559` to switch.
+
+To fund the channel from the **Mastercard-registered funding wallet** `0xcBcc8c442d312D2D2b4B3d124d268fC235294e2C`
+(balance 0 as of 2026-10-25: fund it at the faucet first), put its key in `FUNDER_PRIVATE_KEY` in your local `.env`
+before step 4. Without it, the agent wallet funds the channel (printed clearly).
 
 To use Mastercard's official contracts when they arrive: set `AP4M_LEDGER_ADDRESS`, `AP4M_REGISTRY_ADDRESS`,
-`RLUSD_ADDRESS`, `AP4M_CHANNEL_ID` in `.env`. If their ABI differs, only `agent/src/rails/evm.ts` (`LEDGER_ABI`) changes.
+`RLUSD_ADDRESS`, `AP4M_CHANNEL_ID` (and `RLUSD_DECIMALS`, `RLUSD_LABEL=RLUSD`) in `.env`. If their ABI differs, only
+`agent/src/rails/evm.ts` (`LEDGER_ABI`, `VOUCHER_TYPES`) changes.
+
+Rehearse the exact testnet script offline:
+`cd contracts && HARDHAT_CHAIN_ID=1449000 npx hardhat node --port 8546`, give the agent gas with `hardhat_setBalance`, then
+`REHEARSE_RPC=http://127.0.0.1:8546 ./scripts/testnet-demo.sh --yes`. Delete the resulting
+`contracts/deployments/xrplevmTestnet.json` and `audit.jsonl` afterwards so the fake deployment never gets committed.
 
 ### 4. Fallback: native XRPL Testnet
 
@@ -165,6 +193,46 @@ KILL_SWITCH=1 npm run dev # hard kill from env (cannot be turned off from the UI
 ```
 
 Ledger-side kill switch: `PaymentLedger.pause()` (owner only) blocks open/redeem/settle on-chain.
+
+## Agent API (for the web and fallback lanes)
+
+`@xrp2india/agent` is a workspace package (TypeScript source, no build step). Server-side only: it reads keys from `.env`.
+
+```ts
+import { api } from "@xrp2india/agent";
+
+// one-shot: parse + quote + policy, registers a pending payment. Nothing moves.
+const card = await api.prepare("Send ₹5,000 to my mother in India");
+// card.status: "awaiting_approval" | "denied" | "not_understood"
+// card.quote: { inr, usd, fee, total, rlusd: "57.81 mock RLUSD", rate, rateLabel: "Live rate (frankfurter)" | "Demo FX rate", ... }
+// card.decision: { allow, rule, reason }   card.upiMasked: "•••@okaxis"   card.budget: CONTROL numbers
+
+// human tapped Approve -> typed, frozen, single-use ApprovedAction (throws ApprovalError with .rule on refusal)
+const action = await api.approve(card.id!);
+
+// sign EIP-712 voucher -> redeemVoucher -> settle (or XRPL Payment on SETTLEMENT_RAIL=xrpl)
+const res = await api.redeemAndSettle(action, (step, d) => console.log(step, d?.txHash));
+// res.settlement.proofs[]: { step, txHash, explorerUrl }   res.settlement.events[]: VoucherRedeemed / ClaimPaid / SettlementRecorded
+// res.payout: { label: "SIMULATED", amountInr, upiMasked, reference }   res.budget: updated CONTROL numbers
+
+api.reject(id);                      // human tapped Reject
+await api.budget();                  // { display: { perTxCap, dailyRemaining, channelCap, channelRemaining }, ... }
+api.readAudit(40);                   // newest-last audit events
+api.killSwitch.isOn(); api.killSwitch.set(true);
+
+// building blocks, all pure or side-effect-free:
+await api.parseIntent(text);         // LLM (if configured) -> regex fallback
+api.evaluatePolicy(proposal, cfg.policy, state);
+await api.quote(intent);             // FX chain + fee + token base units
+```
+
+The class behind it is `RemittanceAgent` (`agent/src/service.ts`); `createAgentFromEnv()` builds one from `.env` +
+`contracts/deployments/*.json`. A rail is anything implementing `Rail` in `agent/src/rails/types.ts`
+(`info()`, `channelState()`, `execute(action, guard, onStep)`). The fallback lane's `XrplRail` must keep that shape
+and call `guard.assertMaySign(action)` immediately before signing.
+
+Lane ownership: `contracts/`, `agent/`, `scripts/` and this README's core = builder lane. `web/` = Lane 2.
+`fallback/` = Lane 3. Testnet runs, `contracts/deployments/xrplevmTestnet.json` and `docs/PROOF.md` = Lane 1.
 
 ## Policy rules
 
@@ -205,8 +273,8 @@ so two quick taps cannot both slip under the daily cap. Pending approvals expire
 
 ```bash
 npm test                         # everything below + secret scan
-npm test -w contracts            # 21: KYA, cap invariant, bad/tampered/cross-domain sig, replay, non-monotonic, expiry, revoke, settle delta, pause, close/refund
-npm test -w agent                # 48: money, regex intents, quote rounding + FX fallback, policy under/at/over, service end to end, kill switch, expiry, single-use, concurrency, restart, corrupt log
+npm test -w contracts            # 25: KYA, cap invariant, bad/tampered sig, wrong chain, wrong ledger, replayed + reused nonce, non-monotonic, expired + zero deadline, revoke, settle delta, pause, close/refund, 6/18 decimals
+npm test -w agent                # 58: money, regex intents, quote rounding (18 + 6 dp), FX chain + cache, policy under/at/over, service end to end, split approve/settle API, kill switch, expiry, single-use, concurrency, restart, corrupt log
 npm test -w fallback             # 6: testnet-only guard, drops math, guard-before-sign, result codes
 ```
 
@@ -215,10 +283,11 @@ npm test -w fallback             # 6: testnet-only guard, drops math, guard-befo
 | Path | What |
 | --- | --- |
 | `contracts/` | Hardhat: `ParticipantRegistry`, `PaymentLedger`, `MockRLUSD`, tests, deploy + open-channel scripts |
-| `agent/` | TypeScript agent: intent, quote, policy, approval gate, rails (`evm`, `mock`), audit, kill switch, CLI scripts |
-| `fallback/` | Native XRPL Testnet rail (xrpl.js) |
-| `web/` | Next.js demo UI + API routes (server holds keys; browser never does) |
-| `scripts/` | `secret-scan.mjs`, `local-demo.sh` |
+| `agent/` | TypeScript agent: intent, quote, policy, approval gate, rails (`evm`, `mock`), audit, kill switch, `api.ts`, CLI scripts |
+| `fallback/` | Native XRPL Testnet rail (xrpl.js) (Lane 3) |
+| `web/` | Next.js demo UI + API routes; server holds keys, browser never does (Lane 2) |
+| `scripts/` | `secret-scan.mjs`, `local-demo.sh`, `testnet-demo.sh` |
+| `docs/PROOF.md` | Confirmed testnet tx hashes (Lane 1, generated by `npm run proof -- --write`) |
 
 ## Verified facts
 
@@ -228,7 +297,11 @@ npm test -w fallback             # 6: testnet-only guard, drops math, guard-befo
 | Testnet RPC | `https://rpc.testnet.xrplevm.org` | faucet.xrplevm.org, comparenodes.com | 2026-10-24 |
 | Testnet explorer (Blockscout) | `https://explorer.testnet.xrplevm.org` | chainlist.org, explorer itself | 2026-10-24 |
 | Testnet gas faucet | `https://faucet.xrplevm.org` | faucet.xrplevm.org | 2026-10-24 |
-| RLUSD on XRPL EVM testnet | Not confirmed; using MockRLUSD (18 decimals) | docs.ripple.com token-addresses lists one XRPL EVM address without network label | 2026-10-24 |
+| Testnet RPC answers `eth_chainId` = `0x161c28` (1449000) | live check from outside the build sandbox | team research | 2026-10-25 |
+| EIP-1559 type-2 txs reported rejected by some projects | default to legacy type-0 txs (`EVM_TX_TYPE`) | team research | 2026-10-25 |
+| Docs' "testnet RLUSD" `0x20937978F265DC0C947AA8e136472CFA994FE1eD` | `eth_getCode` = `0x` (no contract) → MockRLUSD | team research | 2026-10-25 |
+| FX primary `GET https://api.frankfurter.dev/v2/rate/USD/INR` | `{"base":"USD","quote":"INR","rate":94.76}`, no key | team research | 2026-10-25 |
+| FX backup `GET https://open.er-api.com/v6/latest/USD` | `rates.INR` | team research | 2026-10-25 |
 | XRPL native testnet WS | `wss://s.altnet.rippletest.net:51233` | xrpl.org | 2026-10-24 |
 
 ## Decisions
@@ -238,7 +311,14 @@ npm test -w fallback             # 6: testnet-only guard, drops math, guard-befo
 - **Testnet chain ID 1449000, not 1440000**: the slide's 1440000 is XRPL EVM mainnet. Testnet only.
 - **Our own spec-compatible AP4M contracts**: official SDK/addresses not yet received; addresses are
   pure config (`AP4M_*_ADDRESS`) so we can swap without code changes.
-- **MockRLUSD (18 decimals)**: no verified RLUSD deployment on XRPL EVM testnet.
+- **MockRLUSD, 18 decimals by default**: no RLUSD contract exists at the documented testnet address. 18 matches RLUSD on
+  EVM chains; `RLUSD_DECIMALS=6` is supported end to end (contract, agent math, tests). The agent fails closed if the
+  on-chain decimals differ from config. Labelled "mock RLUSD" in every display string.
+- **Voucher = (channelId, cumulativeAmount, nonce, deadline, ref)**: the cumulative watermark and the strictly increasing
+  nonce each block replay on their own; the deadline (default 10 min from the latest block) is mandatory.
+- **Legacy type-0 transactions by default** (`EVM_TX_TYPE=legacy`), EIP-155 signed for chain 1449000.
+- **FX chain**: Frankfurter → er-api → cached last good rate (<24h, `.fx-cache.json`) → static "Demo FX rate".
+- **Testnet scripts are idempotent**: deploy/channel are skipped when the deployments file says they exist.
 - **Caps in USD cents** (integers) in config; converted to RLUSD base units (×10^16) in code.
 - **Voucher amount = principal + fee**, so the cap bounds everything the user pays. INR→USD rounds up, USD→INR rounds down.
 - **Daily spend derived from the audit log** (approved minus failed-before-redeem), so it survives restarts.

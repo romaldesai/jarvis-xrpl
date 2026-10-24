@@ -24,7 +24,8 @@ async function main() {
     await ledger.redeemVoucher.staticCall(v, sig);
     throw new Error("UNEXPECTED: over-cap voucher would succeed");
   } catch (e: any) {
-    const reason = e?.revert?.name ?? e?.shortMessage ?? String(e);
+    const msg = String(e?.message ?? e);
+    const reason = e?.revert?.name ?? /custom error '(\w+)/.exec(msg)?.[1] ?? e?.shortMessage ?? msg.slice(0, 120);
     console.log(`simulated: redeemVoucher(cap + 1) reverts with ${reason}`);
   }
   let hash: string | undefined;
