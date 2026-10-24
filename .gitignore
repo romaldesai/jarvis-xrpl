@@ -149,7 +149,7 @@ vite.config.ts.timestamp-*
 .turbo
 
 # --- Hackathon: never commit these ---
-audit.jsonl
+audit*.jsonl
 *.key
 *.pem
 wallets*.json

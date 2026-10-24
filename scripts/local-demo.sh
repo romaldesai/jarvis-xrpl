@@ -24,6 +24,8 @@ await fetch("http://127.0.0.1:8545",{method:"POST",headers:{"content-type":"appl
 console.log("local gas -> " + a);'
 
 export EVM_RPC_URL=http://127.0.0.1:8545 EVM_CHAIN_ID=31337 SETTLEMENT_RAIL=evm
+# Separate audit log so local runs never eat into the testnet demo's 24h budget.
+export AUDIT_LOG_PATH=./audit.local.jsonl
 export AP4M_LEDGER_ADDRESS= AP4M_CHANNEL_ID= RLUSD_ADDRESS= FUNDER_PRIVATE_KEY=
 (cd contracts && npx hardhat run scripts/deploy.ts --network localhost && npx hardhat run scripts/open-channel.ts --network localhost)
 
