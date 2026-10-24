@@ -37,6 +37,7 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {},
+    localhost: { url: "http://127.0.0.1:8545", chainId: 31337 },
     xrplevmTestnet: {
       url: process.env.EVM_RPC_URL || "https://rpc.testnet.xrplevm.org",
       chainId: 1449000,

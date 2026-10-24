@@ -7,7 +7,9 @@
     "build": "hardhat compile",
     "test": "hardhat test",
     "deploy:local": "hardhat run scripts/deploy.ts --network hardhat",
-    "deploy:testnet": "hardhat run scripts/deploy.ts --network xrplevmTestnet"
+    "deploy:testnet": "hardhat run scripts/deploy.ts --network xrplevmTestnet",
+    "channel:local": "hardhat run scripts/open-channel.ts --network hardhat",
+    "channel:testnet": "hardhat run scripts/open-channel.ts --network xrplevmTestnet"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
