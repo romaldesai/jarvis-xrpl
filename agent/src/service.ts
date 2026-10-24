@@ -274,7 +274,8 @@ export class RemittanceAgent {
       return { ok: true, id, settlement, payout, budget: await this.budget() };
     } catch (e) {
       const rule = e instanceof ApprovalError ? e.rule : "SETTLEMENT_FAILED";
-      const msg = e instanceof Error ? e.message.slice(0, 300) : String(e);
+      const short = (e as { shortMessage?: string })?.shortMessage;
+      const msg = (short ?? (e instanceof Error ? e.message : String(e))).slice(0, 200);
       this.audit.append({ event: "fail", id, rule, reason: msg, rail: rail.name });
       return { ok: false, id, rule, error: msg, budget: await this.budget() };
     }
