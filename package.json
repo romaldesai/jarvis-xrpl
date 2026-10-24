@@ -4,11 +4,27 @@
   "version": "0.1.0",
   "description": "XRP2India: guardrailed US to India remittance agent on XRPL EVM Sidechain testnet (AP4M)",
   "license": "MIT",
-  "workspaces": ["contracts", "fallback", "agent", "web"],
+  "workspaces": [
+    "contracts",
+    "fallback",
+    "agent",
+    "web"
+  ],
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
     "secret-scan": "node scripts/secret-scan.mjs --all",
-    "test": "npm run secret-scan && npm test --workspaces --if-present"
+    "test": "npm run secret-scan && npm test --workspaces --if-present",
+    "demo:local": "./scripts/local-demo.sh",
+    "demo:local:web": "./scripts/local-demo.sh --web",
+    "demo:headless": "tsx agent/scripts/demo-headless.ts --guardrails",
+    "wallet:new": "tsx agent/scripts/wallet-new.ts",
+    "wallet:xrpl": "tsx agent/scripts/wallet-xrpl.ts",
+    "balances": "tsx agent/scripts/balances.ts",
+    "kill": "tsx agent/scripts/kill.ts",
+    "deploy:testnet": "npm run deploy:testnet -w contracts && npm run channel:testnet -w contracts",
+    "dev": "npm run dev -w web"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }
