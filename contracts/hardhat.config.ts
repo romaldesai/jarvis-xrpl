@@ -37,7 +37,8 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {},
-    localhost: { url: "http://127.0.0.1:8545", chainId: 31337 },
+    // Local dev chain. Uses the .env agent key when present (funded by scripts/local-demo.sh).
+    localhost: { url: "http://127.0.0.1:8545", chainId: 31337, ...(isHexKey(key) ? { accounts } : {}) },
     xrplevmTestnet: {
       url: process.env.EVM_RPC_URL || "https://rpc.testnet.xrplevm.org",
       chainId: 1449000,
