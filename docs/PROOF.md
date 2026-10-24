@@ -1,6 +1,6 @@
 # XRP2India: on-chain proof (XRPL EVM Sidechain testnet, chain 1449000)
 
-Generated 2026-10-24T17:36:14.334Z by `npm run proof`. Public data only.
+Generated 2026-10-24T17:52:52.842Z by `npm run proof`. Public data only.
 
 ## Contracts
 
@@ -35,6 +35,10 @@ Voucher for cap + 1 base unit, mined and reverted with `OverCap` (status 0): [`0
 | --- | --- | --- | --- |
 | 2026-10-24 17:32:01 | redeemVoucher | $53.76 | [`0x571f3d57c1…c1e20a`](https://explorer.testnet.xrplevm.org/tx/0x571f3d57c11a1ac3171a0e8e45d840c4ca0b431d17f5c4341fbe9b9f1fc1e20a) |
 | 2026-10-24 17:32:07 | settle | $53.76 | [`0x14acb6f6cc…330593`](https://explorer.testnet.xrplevm.org/tx/0x14acb6f6cc3a04fbf393637fef41a77aafa3b280b97bbe833ddf34d23d330593) |
+| 2026-10-24 17:46:30 | redeemVoucher | $53.76 | [`0x8d13c5088b…fd96d5`](https://explorer.testnet.xrplevm.org/tx/0x8d13c5088b95955b65b1c19e0b05edc1b141827187c5d73d84cc25f230fd96d5) |
+| 2026-10-24 17:46:33 | settle | $53.76 | [`0x7d4460e4a4…d42396`](https://explorer.testnet.xrplevm.org/tx/0x7d4460e4a4fb3e760c1aa1b9d831d6c3787efcfbc2d99aef19be1f42b3d42396) |
+| 2026-10-24 17:47:04 | redeemVoucher | $53.76 | [`0x32629908a3…5f7903`](https://explorer.testnet.xrplevm.org/tx/0x32629908a304e9de82d600471459d9b6c7a4e1d7115c1a28db986e81d05f7903) |
+| 2026-10-24 17:47:09 | settle | $53.76 | [`0x0c3b29f999…2a2dd8`](https://explorer.testnet.xrplevm.org/tx/0x0c3b29f9996e28598ad84a32d7b9d3ba211f3bd609589e3b1f9d8ea74a2a2dd8) |
 
 ## REJECTED by policy (latest)
 
