@@ -15,7 +15,7 @@
     "deployLedger": "0x7fc5ae6af954130cb82156c0a77113ac720a2926ffeb0c9a591556d911df6064",
     "kyaRegister": "0x81fa556df5205a1474b939edddb72e9a7a5fea85810c8ad379ea7c35884a7a7d",
     "openChannel": "0x8baf5fc933f94871ce831e8f29a11558070915a6a89efdd8fcc9497e56fb2e8c",
-    "overCapRevert": "0x059983ece48d034396c5bbb4ffc0c95e23b788c6f1c06f66fd5259af4945765d"
+    "overCapRevert": "0x20b146d6cf4a7e432844f99748c0643134e93ab8640bac9312ad485c3fef633b"
   },
   "channelId": "1",
   "funder": "0x6729586b5077F233e99f3B64E0648C5719260593",

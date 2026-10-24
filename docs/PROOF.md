@@ -1,6 +1,6 @@
 # XRP2India: on-chain proof (XRPL EVM Sidechain testnet, chain 1449000)
 
-Generated 2026-10-24T17:28:08.211Z by `npm run proof`. Public data only.
+Generated 2026-10-24T17:36:14.334Z by `npm run proof`. Public data only.
 
 ## Contracts
 
@@ -27,8 +27,19 @@ Channel #1 cap: 500.0 mock RLUSD
 
 ## REJECTED on-chain: over-cap redeem
 
-Voucher for cap + 1 base unit, mined and reverted with `OverCap` (status 0): [`0x059983ece4…45765d`](https://explorer.testnet.xrplevm.org/tx/0x059983ece48d034396c5bbb4ffc0c95e23b788c6f1c06f66fd5259af4945765d)
+Voucher for cap + 1 base unit, mined and reverted with `OverCap` (status 0): [`0x20b146d6cf…ef633b`](https://explorer.testnet.xrplevm.org/tx/0x20b146d6cf4a7e432844f99748c0643134e93ab8640bac9312ad485c3fef633b)
 
 ## Payments (from audit.jsonl)
 
-_No testnet payments yet. Run `npm run demo:headless`._
+| Time (UTC) | Step | Amount | Tx |
+| --- | --- | --- | --- |
+| 2026-10-24 17:32:01 | redeemVoucher | $53.76 | [`0x571f3d57c1…c1e20a`](https://explorer.testnet.xrplevm.org/tx/0x571f3d57c11a1ac3171a0e8e45d840c4ca0b431d17f5c4341fbe9b9f1fc1e20a) |
+| 2026-10-24 17:32:07 | settle | $53.76 | [`0x14acb6f6cc…330593`](https://explorer.testnet.xrplevm.org/tx/0x14acb6f6cc3a04fbf393637fef41a77aafa3b280b97bbe833ddf34d23d330593) |
+
+## REJECTED by policy (latest)
+
+| Time (UTC) | Rule | Reason |
+| --- | --- | --- |
+| 2026-10-24 17:32:07 | `PER_TX_CAP` | $528.64 is over the per-payment cap of $100.00 |
+| 2026-10-24 17:32:07 | `RECIPIENT_NOT_ALLOWED` | "landlord" is not on the allow-list |
+| 2026-10-24 17:32:07 | `KILL_SWITCH` | Kill switch is ON: all payments are blocked |
