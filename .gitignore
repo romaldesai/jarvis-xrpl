@@ -155,3 +155,15 @@ audit.jsonl
 wallets*.json
 .xrpl/
 .claude/settings.local.json
+
+# --- XRP2India ---
+seeds*
+*.seed.txt
+keys/
+contracts/artifacts/
+contracts/cache/
+contracts/typechain-types/
+contracts/deployments/*.local.json
+agent/data/
+web/data/
+killswitch.flag
