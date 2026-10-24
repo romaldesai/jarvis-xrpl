@@ -11,7 +11,7 @@ npx tsx agent/scripts/wallet-new.ts >/dev/null
 
 if ! curl -s -o /dev/null -X POST -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' http://127.0.0.1:8545; then
   echo "starting local Hardhat chain on :8545"
-  (cd contracts && npx hardhat node > "$ROOT/.hardhat-node.log" 2>&1 &)
+  (cd contracts && nohup npx hardhat node < /dev/null > "$ROOT/.hardhat-node.log" 2>&1 & echo $! > "$ROOT/.hardhat-node.pid")
   for i in $(seq 1 40); do curl -s -o /dev/null -X POST -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' http://127.0.0.1:8545 && break; sleep 0.5; done
 fi
 
@@ -26,6 +26,8 @@ console.log("local gas -> " + a);'
 export EVM_RPC_URL=http://127.0.0.1:8545 EVM_CHAIN_ID=31337 SETTLEMENT_RAIL=evm
 # Separate audit log so local runs never eat into the testnet demo's 24h budget.
 export AUDIT_LOG_PATH=./audit.local.jsonl
+# Fresh chain each run -> start a fresh local audit log (old one archived, never edited).
+[ -f audit.local.jsonl ] && mv audit.local.jsonl "audit.local.$(date +%Y%m%d%H%M%S).jsonl"
 export AP4M_LEDGER_ADDRESS= AP4M_CHANNEL_ID= RLUSD_ADDRESS= FUNDER_PRIVATE_KEY=
 (cd contracts && npx hardhat run scripts/deploy.ts --network localhost && npx hardhat run scripts/open-channel.ts --network localhost)
 
@@ -34,3 +36,5 @@ if [ "${1:-}" = "--web" ]; then
   exec npm run dev -w web
 fi
 npx tsx agent/scripts/demo-headless.ts --yes --guardrails
+echo
+echo "Local chain is still running (reuse it with: npm run demo:local:web). Stop it with: pkill -f 'hardhat node'"

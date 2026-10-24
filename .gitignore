@@ -167,3 +167,4 @@ contracts/deployments/*.local.json
 agent/data/
 web/data/
 killswitch.flag
+.hardhat-node.pid
