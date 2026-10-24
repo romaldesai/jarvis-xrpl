@@ -10,7 +10,7 @@ export class MockRail implements Rail {
   constructor(private capCents = 50_000n, private failNext = false) {}
 
   info(): RailInfo {
-    return { name: "mock", network: "SIMULATED CHAIN (offline)", explorerUrl: null, simulatedChain: true, channelId: "mock-1" };
+    return { name: "mock", network: "SIMULATED CHAIN (offline)", explorerUrl: null, simulatedChain: true, channelId: "mock-1", tokenLabel: "mock RLUSD" };
   }
 
   async channelState(): Promise<ChannelState> {
@@ -56,7 +56,7 @@ export class MockRail implements Rail {
         { name: "SettlementRecorded", args: { channelId: "mock-1", settled: this.settled.toString(), redeemed: this.redeemed.toString() } },
       ],
       payout: "mock-payout",
-      amountDisplay: fmtRlusd(action.totalCents),
+      amountDisplay: fmtRlusd(action.totalCents, "mock RLUSD"),
     };
   }
 }

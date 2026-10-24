@@ -39,12 +39,18 @@ export interface SerializedQuote {
   usd: string;
   fee: string;
   total: string;
+  /** e.g. "57.81 mock RLUSD" */
   rlusd: string;
   rate: string;
-  rateSource: "live" | "static";
+  rateSource: "live" | "cached" | "demo";
+  /** e.g. "Live rate (frankfurter)" or "Demo FX rate" */
+  rateLabel: string;
   rateAsOf: string;
   totalCents: string;
+  /** total in token base units (see tokenDecimals) */
   rlusdWei: string;
+  tokenLabel: string;
+  tokenDecimals: number;
 }
 
 export interface SimulatedPayout {
@@ -66,18 +72,21 @@ export interface ApproveResult {
   budget: Budget;
 }
 
-function serializeQuote(q: Quote): SerializedQuote {
+export function serializeQuote(q: Quote, token: { label: string; decimals: number }): SerializedQuote {
   return {
     inr: fmtInr(q.inrPaise),
     usd: fmtUsd(q.usdCents),
     fee: fmtUsd(q.feeCents),
     total: fmtUsd(q.totalCents),
-    rlusd: fmtRlusd(q.totalCents),
+    rlusd: fmtRlusd(q.totalCents, token.label),
     rate: `1 USD = ₹${formatMinor(q.rate.micro / 10_000n, 2)}`,
     rateSource: q.rate.source,
+    rateLabel: q.rate.label,
     rateAsOf: q.rate.asOf,
     totalCents: q.totalCents.toString(),
     rlusdWei: q.rlusdWei.toString(),
+    tokenLabel: token.label,
+    tokenDecimals: token.decimals,
   };
 }
 
@@ -151,8 +160,8 @@ export class RemittanceAgent {
         perTxCap: fmtUsd(p.perTxCapCents),
         dailyCap: fmtUsd(p.dailyCapCents),
         dailyRemaining: rem === null ? null : fmtUsd(rem < 0n ? 0n : rem),
-        channelCap: ch ? fmtRlusd(ch.capCents) : null,
-        channelRemaining: ch ? fmtRlusd(ch.remainingCents) : null,
+        channelCap: ch ? fmtRlusd(ch.capCents, this.cfg.token.label) : null,
+        channelRemaining: ch ? fmtRlusd(ch.remainingCents, this.cfg.token.label) : null,
       },
     };
   }
@@ -168,7 +177,7 @@ export class RemittanceAgent {
       return { id: null, status: "not_understood", text, parser: null, recipient: null, upiMasked: null, quote: null, decision, budget: this.toBudget(s, ch), rail };
     }
     const rate = await getUsdInrRate(this.cfg.fx, this.fetchImpl, this.now());
-    const quote = buildQuote(intent, rate, this.cfg.feeCents);
+    const quote = buildQuote(intent, rate, this.cfg.feeCents, this.cfg.token.decimals);
     const decision = evaluatePolicy({ recipient: intent.recipient, totalCents: quote.totalCents }, this.cfg.policy, s);
     const r = this.cfg.policy.recipients.find((x) => x.alias === intent.recipient);
     const base = {
@@ -176,7 +185,7 @@ export class RemittanceAgent {
       parser: intent.source,
       recipient: intent.recipient,
       upiMasked: r ? maskUpi(r.upiId) : null,
-      quote: serializeQuote(quote),
+      quote: serializeQuote(quote, this.cfg.token),
       decision,
       budget: this.toBudget(s, ch),
       rail,
@@ -195,6 +204,7 @@ export class RemittanceAgent {
       inrPaise: quote.inrPaise.toString(),
       rateMicro: quote.rate.micro.toString(),
       rateSource: quote.rate.source,
+      rateProvider: quote.rate.provider,
       recipient: r.alias,
       upi: maskUpi(r.upiId),
       parser: intent.source,
@@ -214,32 +224,40 @@ export class RemittanceAgent {
 
   private lock: Promise<unknown> = Promise.resolve();
 
-  /** Step 2: the human tapped Approve. Serialized so concurrent approvals can't both pass the daily cap. */
-  approve(id: string, onStep?: (step: string, d?: Record<string, unknown>) => void): Promise<ApproveResult> {
-    const run = this.lock.then(() => this.approveInner(id, onStep));
+  /**
+   * The human approved `id`: re-check policy with fresh state and mint the typed, single-use ApprovedAction.
+   * Serialized so concurrent approvals can't both pass the daily cap. Audits "approve" (budget is reserved
+   * from here) or "deny". Throws ApprovalError with `.rule` on refusal.
+   */
+  approveAction(id: string): Promise<ApprovedAction> {
+    const run = this.lock.then(async () => {
+      const rail = this.rail.info();
+      try {
+        const { s } = await this.state();
+        const action = this.gate.approve(
+          id,
+          (p: PendingPayment) => evaluatePolicy({ recipient: p.recipient, totalCents: p.quote.totalCents }, this.cfg.policy, s),
+          this.now().getTime(),
+        );
+        this.audit.append({ event: "approve", id, rule: "HUMAN_APPROVED", totalCents: action.totalCents.toString(), recipient: action.recipient, rail: rail.name });
+        return action;
+      } catch (e) {
+        const err = e instanceof ApprovalError ? e : new ApprovalError("ERROR", e instanceof Error ? e.message : String(e));
+        this.audit.append({ event: "deny", id, rule: err.rule, reason: err.message, rail: rail.name });
+        throw err;
+      }
+    });
     this.lock = run.catch(() => undefined);
     return run;
   }
 
-  /** Re-check policy, mint ApprovedAction, settle, audit. */
-  private async approveInner(id: string, onStep?: (step: string, d?: Record<string, unknown>) => void): Promise<ApproveResult> {
+  /**
+   * Execute an ApprovedAction on the configured rail: sign voucher -> redeemVoucher -> settle (EVM) or Payment (XRPL).
+   * The rail re-checks the kill switch and consumes the action (single use) immediately before signing.
+   */
+  async redeemAndSettle(action: ApprovedAction, onStep?: (step: string, d?: Record<string, unknown>) => void): Promise<ApproveResult> {
+    const id = action.id;
     const rail = this.rail.info();
-    let action: ApprovedAction;
-    try {
-      const { s } = await this.state();
-      action = this.gate.approve(
-        id,
-        (p: PendingPayment) => evaluatePolicy({ recipient: p.recipient, totalCents: p.quote.totalCents }, this.cfg.policy, s),
-        this.now().getTime(),
-      );
-    } catch (e) {
-      const rule = e instanceof ApprovalError ? e.rule : "ERROR";
-      const msg = e instanceof Error ? e.message : String(e);
-      this.audit.append({ event: "deny", id, rule, reason: msg, rail: rail.name });
-      return { ok: false, id, rule, error: msg, budget: await this.budget() };
-    }
-    this.audit.append({ event: "approve", id, rule: "HUMAN_APPROVED", totalCents: action.totalCents.toString(), recipient: action.recipient, rail: rail.name });
-
     try {
       let redeemLogged = false;
       const settlement = await this.rail.execute(action, this.guard(), (step, d) => {
@@ -279,6 +297,19 @@ export class RemittanceAgent {
       this.audit.append({ event: "fail", id, rule, reason: msg, rail: rail.name });
       return { ok: false, id, rule, error: msg, budget: await this.budget() };
     }
+  }
+
+  /** Convenience: approveAction + redeemAndSettle. Never throws; refusals come back as { ok: false, rule }. */
+  async approve(id: string, onStep?: (step: string, d?: Record<string, unknown>) => void): Promise<ApproveResult> {
+    let action: ApprovedAction;
+    try {
+      onStep?.("approved");
+      action = await this.approveAction(id);
+    } catch (e) {
+      const err = e as ApprovalError;
+      return { ok: false, id, rule: err.rule ?? "ERROR", error: err.message, budget: await this.budget() };
+    }
+    return this.redeemAndSettle(action, onStep);
   }
 
   reject(id: string): { ok: boolean } {

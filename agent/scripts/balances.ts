@@ -14,18 +14,25 @@ console.log(`EVM: ${cfg.evm.rpcUrl} (chain ${cfg.evm.chainId})`);
 try {
   const provider = new JsonRpcProvider(cfg.evm.rpcUrl, cfg.evm.chainId, { staticNetwork: true });
   const agent = cfg.evm.agentKey ? new Wallet(cfg.evm.agentKey).address : null;
-  if (agent) console.log(`  agent ${agent} gas=${formatEther(await provider.getBalance(agent))} XRP`);
+  const FAUCET = "https://faucet.xrplevm.org";
+  const gas = async (label: string, a: string) => {
+    const b = await provider.getBalance(a);
+    console.log(`  ${label} ${a} gas=${formatEther(b)} XRP${b === 0n ? `   <- 0: get testnet XRP at ${FAUCET}` : ""}`);
+  };
+  if (agent) await gas("agent ", agent);
+  else console.log("  no AGENT_PRIVATE_KEY yet: npm run wallet:new");
   const funder = process.env.FUNDER_ADDRESS;
-  if (funder) console.log(`  funder ${funder} gas=${formatEther(await provider.getBalance(funder))} XRP`);
+  if (funder) await gas("funder", funder);
   if (cfg.evm.rlusd) {
     const t = new Contract(cfg.evm.rlusd, ERC20, provider);
     for (const [label, a] of [["agent", agent], ["funder", funder], ["payout", d.payout ?? process.env.PAYOUT_ADDRESS], ["ledger", cfg.evm.ledger]] as const)
-      if (a) console.log(`  RLUSD ${label.padEnd(6)} ${a} ${formatUnits(await t.balanceOf(a), 18)}`);
+      if (a) console.log(`  ${cfg.token.label} ${label.padEnd(6)} ${a} ${formatUnits(await t.balanceOf(a), cfg.token.decimals)}`);
   } else console.log("  no RLUSD address yet (deploy first)");
   if (cfg.evm.ledger && cfg.evm.channelId !== null) {
     const l = new Contract(cfg.evm.ledger, LEDGER_ABI, provider);
     const c = await l.channels(cfg.evm.channelId);
-    console.log(`  channel ${cfg.evm.channelId}: cap=${formatUnits(c.cap, 18)} redeemed=${formatUnits(c.redeemed, 18)} settled=${formatUnits(c.settled, 18)} closed=${c.closed}`);
+    const f = (v: bigint) => formatUnits(v, cfg.token.decimals);
+    console.log(`  channel ${cfg.evm.channelId}: cap=${f(c.cap)} redeemed=${f(c.redeemed)} settled=${f(c.settled)} lastNonce=${c.lastNonce} closed=${c.closed}`);
   } else console.log("  no channel yet (open-channel first)");
 } catch (e) {
   console.log(`  EVM unreachable: ${(e as Error).message.slice(0, 120)}`);

@@ -39,7 +39,17 @@ export function buildRail(cfg: AppConfig): Rail {
   const e = cfg.evm;
   if (!e.agentKey) throw new Error("evm rail: set AGENT_PRIVATE_KEY (npm run wallet:new)");
   if (!e.ledger || e.channelId === null) throw new Error("evm rail: no ledger/channel. Deploy + open channel first, or set AP4M_LEDGER_ADDRESS and AP4M_CHANNEL_ID");
-  return new EvmRail({ rpcUrl: e.rpcUrl, chainId: e.chainId, explorerUrl: e.explorerUrl, agentKey: e.agentKey, ledger: e.ledger, channelId: e.channelId });
+  return new EvmRail({
+    rpcUrl: e.rpcUrl,
+    chainId: e.chainId,
+    explorerUrl: e.explorerUrl,
+    agentKey: e.agentKey,
+    ledger: e.ledger,
+    channelId: e.channelId,
+    txType: e.txType,
+    tokenDecimals: cfg.token.decimals,
+    tokenLabel: cfg.token.label,
+  });
 }
 
 export function createAgentFromEnv(): RemittanceAgent {
@@ -50,6 +60,7 @@ export function createAgentFromEnv(): RemittanceAgent {
   if (process.env.KILL_SWITCH_FILE && !path.isAbsolute(process.env.KILL_SWITCH_FILE)) process.env.KILL_SWITCH_FILE = path.join(root, process.env.KILL_SWITCH_FILE);
   if (!process.env.KILL_SWITCH_FILE) process.env.KILL_SWITCH_FILE = path.join(root, "killswitch.flag");
   const chainId = Number(process.env.EVM_CHAIN_ID ?? 1449000);
+  if (!process.env.FX_CACHE_FILE) process.env.FX_CACHE_FILE = path.join(root, ".fx-cache.json");
   const cfg = loadConfig(process.env, loadDeployment(root, chainId));
   return new RemittanceAgent(cfg, { rail: buildRail(cfg) });
 }

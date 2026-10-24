@@ -168,3 +168,4 @@ agent/data/
 web/data/
 killswitch.flag
 .hardhat-node.pid
+.fx-cache.json

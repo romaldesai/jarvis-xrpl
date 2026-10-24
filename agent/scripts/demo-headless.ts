@@ -22,7 +22,7 @@ const text = process.argv.find((a) => a.startsWith("--text="))?.slice(7) ?? "Sen
 line(`USER: "${text}"`);
 const card = await agent.prepare(text);
 line(`AGENT (${card.parser} parser): ${card.recipient} ${card.upiMasked ?? ""}  ${card.quote?.inr ?? ""}`);
-if (card.quote) line(`  quote: ${card.quote.usd} + fee ${card.quote.fee} = ${card.quote.total} (${card.quote.rlusd})  ${card.quote.rate} [${card.quote.rateSource}]`);
+if (card.quote) line(`  quote: ${card.quote.usd} + fee ${card.quote.fee} = ${card.quote.total} (${card.quote.rlusd})  ${card.quote.rate} [${card.quote.rateLabel}]`);
 line(`POLICY: ${card.decision.allow ? "ALLOW" : "DENY"} [${card.decision.rule}] ${card.decision.reason}`);
 if (card.status !== "awaiting_approval") process.exit(2);
 
@@ -50,13 +50,14 @@ line(`CONTROL after: 24h remaining ${res.budget.display.dailyRemaining} | channe
 line();
 
 if (process.argv.includes("--guardrails")) {
-  line('GUARDRAIL 1: "Send ₹10,000 to my brother"');
-  const over = await agent.prepare("Send ₹10,000 to my brother");
+  line('REJECTED 1 (over cap): "Send ₹50,000 to my mother"');
+  const over = await agent.prepare("Send ₹50,000 to my mother");
   line(`  POLICY: DENY [${over.decision.rule}] ${over.decision.reason}`);
-  line('GUARDRAIL 2: "Send ₹500 to my landlord"');
+  line("  (on-chain over-cap revert proof: npm run prove:overcap)");
+  line('REJECTED 2 (not allow-listed): "Send ₹500 to my landlord"');
   const who = await agent.prepare("Send ₹500 to my landlord");
   line(`  POLICY: DENY [${who.decision.rule}] ${who.decision.reason}`);
-  line("GUARDRAIL 3: kill switch ON, then try to approve a prepared payment");
+  line("REJECTED 3 (kill switch): prepare a payment, kill switch ON, then try to approve");
   const c = await agent.prepare("Send ₹1,000 to my mother");
   agent.setKill(true);
   const k = await agent.approve(c.id!);

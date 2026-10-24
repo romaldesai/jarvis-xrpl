@@ -36,5 +36,7 @@ if [ "${1:-}" = "--web" ]; then
   exec npm run dev -w web
 fi
 npx tsx agent/scripts/demo-headless.ts --yes --guardrails
+echo "== on-chain over-cap proof (local)"
+(cd contracts && npx hardhat run scripts/prove-overcap.ts --network localhost) || true
 echo
 echo "Local chain is still running (reuse it with: npm run demo:local:web). Stop it with: pkill -f 'hardhat node'"

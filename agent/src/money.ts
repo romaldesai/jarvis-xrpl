@@ -34,7 +34,15 @@ function groupDigits(s: string, style: "en-US" | "en-IN"): string {
 
 export const ceilDiv = (a: bigint, b: bigint): bigint => (a + b - 1n) / b;
 
-/** RLUSD has 18 decimals; 1 US cent = 10^16 base units. */
+/** Token base units per US cent for a token with `decimals` (1 token = $1). 18dp -> 10^16, 6dp -> 10^4. */
+export function unitsPerCent(decimals: number): bigint {
+  if (!Number.isInteger(decimals) || decimals < 2 || decimals > 18) throw new Error("token decimals must be 2..18");
+  return 10n ** BigInt(decimals - 2);
+}
+export const centsToBase = (cents: bigint, decimals: number): bigint => cents * unitsPerCent(decimals);
+export const baseToCentsFloor = (base: bigint, decimals: number): bigint => base / unitsPerCent(decimals);
+
+/** Back-compat helpers for an 18-decimal token. */
 export const RLUSD_DECIMALS = 18;
 export const WEI_PER_CENT = 10n ** 16n;
 export const centsToRlusd = (cents: bigint): bigint => cents * WEI_PER_CENT;
@@ -42,4 +50,4 @@ export const rlusdToCentsFloor = (wei: bigint): bigint => wei / WEI_PER_CENT;
 
 export const fmtUsd = (cents: bigint) => `$${formatMinor(cents, 2, { grouping: "en-US" })}`;
 export const fmtInr = (paise: bigint) => `₹${formatMinor(paise, 2, { grouping: "en-IN" })}`;
-export const fmtRlusd = (cents: bigint) => `${formatMinor(cents, 2, { grouping: "en-US" })} RLUSD`;
+export const fmtRlusd = (cents: bigint, label = "RLUSD") => `${formatMinor(cents, 2, { grouping: "en-US" })} ${label}`;

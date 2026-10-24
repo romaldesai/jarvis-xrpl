@@ -18,6 +18,7 @@ function setup(extraEnv: Record<string, string> = {}) {
     KILL_SWITCH: "0",
     KILL_SWITCH_FILE: path.join(dir, "kill.flag"),
     FX_STATIC_USD_INR: "88.00",
+    FX_OFFLINE: "1",
     ...extraEnv,
   };
   const cfg = loadConfig(env as NodeJS.ProcessEnv);
@@ -153,7 +154,7 @@ describe("approval gate", () => {
   });
   it("issued actions are frozen and consumable once", () => {
     const gate = new ApprovalGate();
-    const q = { inrPaise: 1n, usdCents: 1n, feeCents: 0n, totalCents: 1n, rlusdWei: 1n, rate: { micro: 1n, source: "static" as const, asOf: "" } };
+    const q = { inrPaise: 1n, usdCents: 1n, feeCents: 0n, totalCents: 1n, rlusdWei: 1n, rate: { micro: 1n, source: "demo" as const, provider: "static", label: "Demo FX rate", asOf: "" } };
     const p = gate.prepare({ recipient: "mother", upiId: "a@b", quote: q });
     const a = gate.approve(p.id, () => ({ allow: true, rule: "OK", reason: "" }));
     expect(Object.isFrozen(a)).toBe(true);
@@ -179,5 +180,38 @@ describe("accounting edge: redeem succeeded but settle failed", () => {
     expect(r.ok).toBe(false);
     expect(r.budget.spentTodayCents).toBe("5781");
     expect(t.audit.read().map((e) => e.event)).toEqual(["prepare", "approve", "redeem", "fail"]);
+  });
+});
+
+describe("split API: approveAction -> redeemAndSettle", () => {
+  it("mints a typed action, then settles it exactly once", async () => {
+    const t = setup();
+    const c = await t.agent.prepare("Send ₹5,000 to my mother");
+    const action = await t.agent.approveAction(c.id!);
+    expect(action.totalCents).toBe(5781n);
+    expect(t.audit.read().map((e) => e.event)).toEqual(["prepare", "approve"]); // nothing moved yet
+    const r1 = await t.agent.redeemAndSettle(action);
+    expect(r1.ok).toBe(true);
+    const r2 = await t.agent.redeemAndSettle(action);
+    expect(r2).toMatchObject({ ok: false, rule: "NOT_APPROVED" });
+  });
+  it("approveAction throws ApprovalError with the policy rule", async () => {
+    const t = setup();
+    const c = await t.agent.prepare("Send ₹5,000 to my mother");
+    t.agent.setKill(true);
+    await expect(t.agent.approveAction(c.id!)).rejects.toMatchObject({ rule: "KILL_SWITCH" });
+  });
+  it("quote carries token label + FX label", async () => {
+    const t = setup();
+    const c = await t.agent.prepare("Send ₹50,000 to my mother");
+    expect(c.decision.rule).toBe("PER_TX_CAP");
+    expect(c.quote?.rlusd).toContain("mock RLUSD");
+    expect(c.quote?.rateLabel).toBe("Demo FX rate");
+  });
+  it("RLUSD_DECIMALS=6 changes base units, not dollars", async () => {
+    const t = setup({ RLUSD_DECIMALS: "6" });
+    const c = await t.agent.prepare("Send ₹5,000 to my mother");
+    expect(c.quote?.rlusdWei).toBe("57810000");
+    expect(c.quote?.total).toBe("$57.81");
   });
 });

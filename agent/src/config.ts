@@ -13,11 +13,28 @@ export interface PolicyConfig {
   recipients: Recipient[];
 }
 
+export interface FxConfig {
+  /** Tried in order. "frankfurter" returns {rate}; "er-api" returns {rates:{INR}}. */
+  providers: { name: string; url: string }[];
+  staticMicro: bigint;
+  timeoutMs: number;
+  /** Last good live rate is cached here (JSON, with timestamp); null disables the file cache. */
+  cacheFile: string | null;
+  cacheMaxAgeMs: number;
+}
+
+export interface TokenConfig {
+  decimals: number;
+  /** Shown in UI/CLI: "mock RLUSD" unless a real RLUSD is configured. */
+  label: string;
+}
+
 export interface AppConfig {
   rail: RailName;
   policy: PolicyConfig;
   feeCents: bigint;
-  fx: { apiUrl: string | null; staticMicro: bigint; timeoutMs: number };
+  token: TokenConfig;
+  fx: FxConfig;
   auditPath: string;
   killSwitch: { envVar: string; file: string };
   llm: { apiKey: string | null; model: string | null; timeoutMs: number };
@@ -30,6 +47,8 @@ export interface AppConfig {
     registry: string | null;
     rlusd: string | null;
     channelId: bigint | null;
+    /** "legacy" (type 0, default; some XRPL EVM testnet setups reject type-2) or "eip1559". */
+    txType: "legacy" | "eip1559";
   };
   xrpl: {
     wsUrl: string;
@@ -66,6 +85,8 @@ export interface Deployment {
   ledger?: string;
   registry?: string;
   rlusd?: string;
+  rlusdIsMock?: boolean;
+  rlusdDecimals?: number;
   channelId?: string;
 }
 
@@ -87,10 +108,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, deployment: Dep
       recipients: parseRecipients(env.POLICY_ALLOWED_RECIPIENTS ?? "mother:mom.demo@okaxis,brother:bro.demo@okhdfcbank"),
     },
     feeCents: int(env, "FEE_USD_CENTS", "99"),
+    token: {
+      decimals: Number(env.RLUSD_DECIMALS ?? deployment.rlusdDecimals ?? 18),
+      label: opt(env.RLUSD_LABEL) ?? (deployment.rlusdIsMock === false ? "RLUSD" : "mock RLUSD"),
+    },
     fx: {
-      apiUrl: opt(env.FX_API_URL) ?? "https://open.er-api.com/v6/latest/USD",
+      providers: env.FX_OFFLINE === "1" ? [] : [
+        { name: "frankfurter", url: opt(env.FX_PRIMARY_URL) ?? "https://api.frankfurter.dev/v2/rate/USD/INR" },
+        { name: "er-api", url: opt(env.FX_BACKUP_URL) ?? "https://open.er-api.com/v6/latest/USD" },
+      ],
       staticMicro: parseDecimal(env.FX_STATIC_USD_INR ?? "88.00", 6),
       timeoutMs: 2500,
+      cacheFile: env.FX_CACHE_FILE ?? null,
+      cacheMaxAgeMs: 24 * 3600 * 1000,
     },
     auditPath: env.AUDIT_LOG_PATH ?? "./audit.jsonl",
     killSwitch: { envVar: env.KILL_SWITCH ?? "0", file: env.KILL_SWITCH_FILE ?? "./killswitch.flag" },
@@ -104,6 +134,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, deployment: Dep
       registry: opt(env.AP4M_REGISTRY_ADDRESS) ?? deployment.registry ?? null,
       rlusd: opt(env.RLUSD_ADDRESS) ?? deployment.rlusd ?? null,
       channelId: channel ? BigInt(channel) : null,
+      txType: env.EVM_TX_TYPE === "eip1559" ? "eip1559" : "legacy",
     },
     xrpl: {
       wsUrl: xrplWs,
@@ -114,5 +145,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, deployment: Dep
     },
   };
   if (cfg.policy.perTxCapCents <= 0n || cfg.policy.dailyCapCents <= 0n) throw new Error("config: caps must be > 0");
+  if (!Number.isInteger(cfg.token.decimals) || cfg.token.decimals < 2 || cfg.token.decimals > 18) throw new Error("config: RLUSD_DECIMALS must be 2..18");
   return cfg;
 }

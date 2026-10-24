@@ -13,5 +13,5 @@ const env = readEnv();
 const addr = new Wallet(env.AGENT_PRIVATE_KEY).address;
 console.log(wroteKey ? `agent wallet created: ${addr}` : `agent wallet already set: ${addr} (use --force to replace)`);
 console.log(wrotePayout ? `payout address created: ${payout.address}` : `payout address already set: ${env.PAYOUT_ADDRESS}`);
-console.log("Private key written to .env only (gitignored). It was not printed.");
+if (wroteKey) console.log("Private key written to .env only (gitignored). It was not printed.");
 console.log(`Next: get testnet gas for ${addr} at https://faucet.xrplevm.org`);

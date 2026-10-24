@@ -22,7 +22,11 @@
     "balances": "tsx agent/scripts/balances.ts",
     "kill": "tsx agent/scripts/kill.ts",
     "deploy:testnet": "npm run deploy:testnet -w contracts && npm run channel:testnet -w contracts",
-    "dev": "npm run dev -w web"
+    "dev": "npm run dev -w web",
+    "testnet": "./scripts/testnet-demo.sh",
+    "check": "npm run -s check:testnet -w contracts",
+    "proof": "tsx agent/scripts/proof.ts",
+    "prove:overcap": "npm run -s prove:overcap -w contracts"
   },
   "engines": {
     "node": ">=20"

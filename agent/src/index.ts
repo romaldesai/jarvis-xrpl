@@ -10,4 +10,6 @@ export * from "./rails/types";
 export { EvmRail, LEDGER_ABI, VOUCHER_TYPES } from "./rails/evm";
 export { MockRail } from "./rails/mock";
 export * from "./service";
+export { VOUCHER_TTL_SECONDS } from "./rails/evm";
 export * from "./factory";
+export * as api from "./api";

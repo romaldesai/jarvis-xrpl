@@ -26,6 +26,8 @@ export interface SettlementResult {
   events: ChainEvent[];
   payout: string; // address that received funds
   amountDisplay: string;
+  /** Decimals of amounts in event args (EVM rail); absent for mock/xrpl. */
+  tokenDecimals?: number;
 }
 
 export type StepCallback = (step: string, detail?: Record<string, unknown>) => void;
@@ -38,6 +40,8 @@ export interface RailInfo {
   agentAddress?: string;
   ledger?: string;
   channelId?: string;
+  /** "mock RLUSD" on testnet until a real RLUSD is configured. */
+  tokenLabel?: string;
 }
 
 export interface Rail {
