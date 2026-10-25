@@ -39,6 +39,9 @@ npm install
 cp .env.example .env      # fill in test-only keys locally; never commit .env
 npm test                  # 9 policy + 6 decode tests, no network (root `npm test` also runs them on Node ≥ 22.13)
 npm run merchant          # terminal 1: Corridor Quote Merchant on 127.0.0.1:4308
+                          # Each start uses a fresh merchant-state/run-<ts>/ folder, because the SDK binds the store to the quote content.
+                          # If a purchase is interrupted (HTTP 503), keep the same merchant running and re-run `npm run agent`;
+                          # it resumes the same signed voucher and never pays twice.
 npm run agent             # terminal 2: agent buys a quote autonomously, settles, prints receipt
 npm run overcap           # agent tries to exceed the cap: policy refuses, ledger reverts on-chain
 touch STOP && npm run agent; rm STOP   # kill switch demo

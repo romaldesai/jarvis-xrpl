@@ -48,7 +48,9 @@ async function main() {
     context,
     provider,
     submitter: new ethers.Wallet(MERCHANT_PRIVATE_KEY, provider),
-    stateDirectory: process.env.MERCHANT_STATE_DIR || './merchant-state',
+    // The SDK fingerprints the store with the resource content (live rate + quotedAt), so a reused
+    // directory refuses to start after any restart. Default to a fresh per-start folder (gitignored).
+    stateDirectory: process.env.MERCHANT_STATE_DIR || `./merchant-state/run-${Date.now()}`,
     resourceUrl: RESOURCE_URL,
     merchantParticipantId: MERCHANT_ID,
     payout: MERCHANT_ADDRESS,
