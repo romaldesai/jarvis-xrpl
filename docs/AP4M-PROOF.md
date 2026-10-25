@@ -1,5 +1,8 @@
 # AP4M proof: autonomous, bounded x402 payments (XRPL EVM testnet, chain 1449000)
 
+> **x402 transcript** (live 402 capture, per-purchase agent flow, claim → tx → receipt map, raw revert data):
+> [`AP4M-X402-TRANSCRIPT.md`](AP4M-X402-TRANSCRIPT.md)
+
 Run on the **Mastercard AP4M hackathon platform** (`https://hackathon.ap4m.build`), Sun Oct 25 2026, ~12:50–1:00 AM ET.
 Every hash below was re-read from `https://rpc.testnet.xrplevm.org` (`eth_getTransactionReceipt`).
 **Independently re-verified Sun Oct 25 2026, 10:40 AM ET** (fresh clone, separate machine): across this file and

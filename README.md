@@ -15,6 +15,8 @@ its own small data purchases **autonomously** on the **live Mastercard AP4M plat
 
 Code: [`ap4m/README.md`](ap4m/README.md) · Proof with tx hashes: [`docs/AP4M-PROOF.md`](docs/AP4M-PROOF.md)
 
+x402 transcript (402 challenge → policy → voucher → redeem → settle → receipt): [`docs/AP4M-X402-TRANSCRIPT.md`](docs/AP4M-X402-TRANSCRIPT.md)
+
 - **On the AP4M platform, with AP4M-provided testnet RLUSD:** the agent's **autonomous corridor-quote purchases**.
   It gets HTTP 402, checks its policy, signs an x402 voucher and pays 0.25 RLUSD per USD→INR quote inside a
   2 RLUSD AP4M channel, with no human tap (3 purchases, 3 receipts that verify against the chain). Agent and merchant

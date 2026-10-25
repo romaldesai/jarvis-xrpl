@@ -25,7 +25,7 @@ const ALLOW = /(YOUR_[A-Z0-9_]+_HERE|REPLACE_ME|secret-scan:allow)/;
 const TX_URL = /\/tx\/0x[0-9a-fA-F]{64}/g;
 const SKIP = /(^|\/)(node_modules|\.git|\.next|artifacts|cache|typechain-types|coverage|dist)\//;
 // Files that only hold public tx hashes / addresses: exempt from the 64-hex rule only.
-const PUBLIC_HASH_FILES = /^(contracts\/deployments\/[^/]+\.json|docs\/proof[^/]*\.md)$/;
+const PUBLIC_HASH_FILES = /^(contracts\/deployments\/[^/]+\.json|docs\/proof[^/]*\.md|docs\/AP4M-X402-TRANSCRIPT\.md)$/;
 const SKIP_EXT = /\.(png|jpg|jpeg|gif|ico|woff2?|ttf|lock|pdf)$|package-lock\.json$/;
 
 function files() {
