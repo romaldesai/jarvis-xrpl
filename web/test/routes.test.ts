@@ -29,7 +29,7 @@ beforeEach(() => {
     KILL_SWITCH_FILE: path.join(dir, "kill.flag"),
     FX_STATIC_USD_INR: "88.00",
     FX_OFFLINE: "1",
-  } as NodeJS.ProcessEnv;
+  } as unknown as NodeJS.ProcessEnv;
   rail = new MockRail(50_000n);
   agent = new RemittanceAgent(loadConfig(env), { rail, fetchImpl: offlineFetch, env });
   // web/lib/agent.ts caches the agent here; inject ours instead of building one from .env.
