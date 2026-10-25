@@ -6,6 +6,10 @@ Every hash below was re-read from `https://rpc.testnet.xrplevm.org` (`eth_getTra
 [`PROOF.md`](PROOF.md), 22 transactions status 1, 2 intentional reverts (own-ledger `OverCap` and the AP4M over-cap below),
 8 hashes are IDs (merchant / channel / claim / digest), not transactions. All 3 AP4M receipts → `verify-receipt.mjs` **verified: true**,
 0.25 RLUSD each. Re-run it yourself: `npm run verify:proof` (needs outbound access to the testnet RPC).
+**Re-verified live Sun Oct 25 2026 ~11:05 AM ET** against `https://rpc.testnet.xrplevm.org`:
+`npm run verify:proof` → `chain 1449000: 32 hashes -> 22 success, 2 reverted, 8 non-tx (IDs)`, both reverts the intentional
+over-cap proofs, exit 0; `npm run decode:revert` → `VoucherExceedsChannelCap: requested 3.0 RLUSD > cap 2.0 RLUSD`
+(name inferred from selector `0xeeaa063e`).
 Explorer: `https://explorer.testnet.xrplevm.org/tx/<hash>`.
 
 AP4M contracts (from `/public/config`): PaymentLedger `0xcAB42800A5ECF0D253Fa2581Bb3334B4DAEfaE91`,
@@ -63,7 +67,7 @@ Replaying the reverted tx with `eth_call` at block − 1 returns custom-error da
 | Args (uint256, uint256) | `3000000000000000000`, `2000000000000000000` → **requested 3.0 RLUSD vs cap 2.0 RLUSD** |
 | Error name | `VoucherExceedsChannelCap(uint256,uint256)`: **inferred from a selector match** (`keccak256` of that signature starts with `0xeeaa063e`). AP4M does not publish the PaymentLedger ABI, so the name is not confirmed by AP4M. |
 
-Reproduce (read-only, no keys, testnet only; refuses any chain other than 1449000): `npm run decode:revert`
+Re-verified live Sun Oct 25 2026 ~11:05 AM ET (output above). Reproduce (read-only, no keys, testnet only; refuses any chain other than 1449000): `npm run decode:revert`
 (source: [`ap4m/decode-revert.mjs`](../ap4m/decode-revert.mjs), offline tests in `ap4m/decode-revert.test.mjs`).
 
 ## Spend

@@ -56,7 +56,7 @@ export function extractRevertData(err) {
 }
 
 async function rpc(url, method, params) {
-  const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
+  const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }), signal: AbortSignal.timeout(10_000) });
   if (!r.ok) throw new Error(`${method}: HTTP ${r.status}`);
   return r.json();
 }
