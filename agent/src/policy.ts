@@ -36,7 +36,7 @@ const deny = (rule: Rule, reason: string): Decision => ({ allow: false, rule, re
 
 export function evaluatePolicy(p: Proposal, cfg: PolicyConfig, s: PolicyState): Decision {
   if (s.killed) return deny("KILL_SWITCH", "Kill switch is ON: all payments are blocked");
-  if (s.spentTodayCents === null) return deny("STATE_UNAVAILABLE", "Could not read today's spend from the audit log: failing closed");
+  if (s.spentTodayCents === null) return deny("STATE_UNAVAILABLE", "Chain/RPC unreachable (or audit log unreadable): cannot verify live limits, failing closed");
   if (typeof p.totalCents !== "bigint" || p.totalCents <= 0n) return deny("INVALID_AMOUNT", "Amount must be a positive integer");
   if (!p.recipient) return deny("NO_RECIPIENT", "No recipient found in the request");
   const r = cfg.recipients.find((x) => x.alias === p.recipient);

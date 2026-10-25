@@ -155,7 +155,9 @@ describe("RemittanceAgent end to end (mock rail)", () => {
     const card = await t.agent.prepare("Send ₹5,000 to my mother");
     expect(card.status).toBe("awaiting_approval");
     t.rail.channelState = async () => { throw new Error("ECONNREFUSED rpc"); };
-    expect((await t.agent.prepare("Send ₹5,000 to my mother")).decision.rule).toBe("STATE_UNAVAILABLE");
+    const denied = (await t.agent.prepare("Send ₹5,000 to my mother")).decision;
+    expect(denied.rule).toBe("STATE_UNAVAILABLE");
+    expect(denied.reason).toMatch(/Chain\/RPC unreachable/);
     const res = await t.agent.approve(card.id!);
     expect(res.ok).toBe(false);
     expect(res.rule).toBe("STATE_UNAVAILABLE");
