@@ -1,0 +1,19 @@
+{
+  "name": "@xrp2india/ap4m",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "XRP2India AP4M lane: remittance agent autonomously buys a USD/INR corridor quote over x402, within a funded AP4M channel cap.",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "merchant": "node merchant.mjs",
+    "agent": "node agent.mjs",
+    "overcap": "node overcap.mjs",
+    "verify": "node verify-receipt.mjs",
+    "test": "node --test policy.test.mjs"
+  },
+  "dependencies": {
+    "@ap4m/sdk": "https://hackathon.ap4m.build/sdk/ap4m-sdk.tgz",
+    "ethers": "6.17.0"
+  }
+}
