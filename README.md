@@ -4,9 +4,10 @@
 
 XRP2India is a US→India remittance agent built for the XRPL Hackathon NYC (Agentic Finance track +
 Mastercard **Agent Pay for Machines (AP4M)** challenge). You type *"Send ₹5,000 to my mother in India"*.
-A KYA-verified agent prepares the payment inside a prefunded, capped channel. You tap **Approve**. An
-EIP-712 voucher is redeemed, RLUSD settles on the **XRPL EVM Sidechain testnet**, and a **SIMULATED**
-UPI payout screen shows what the recipient would see.
+The agent prepares the payment inside a prefunded, capped channel. You tap **Approve**. An EIP-712 voucher is
+redeemed and settles on the **XRPL EVM Sidechain testnet** (on our own AP4M-spec PaymentLedger with mock RLUSD; see
+below), and a **SIMULATED** UPI payout screen shows what the recipient would see. Separately, the same agent pays for
+its own small data purchases **autonomously** on the **live Mastercard AP4M platform**, inside a 2 RLUSD on-chain cap.
 
 > Team RomsCoin (solo). Testnet only. Nothing here touches mainnet or real money.
 
@@ -14,13 +15,40 @@ UPI payout screen shows what the recipient would see.
 
 Code: [`ap4m/README.md`](ap4m/README.md) · Proof with tx hashes: [`docs/AP4M-PROOF.md`](docs/AP4M-PROOF.md)
 
-- **On AP4M RLUSD (real AP4M platform):** the agent's **autonomous corridor-quote purchases**. It hits an
-  HTTP 402, checks policy, signs an x402 voucher and pays 0.25 RLUSD per USD→INR quote inside a 2 RLUSD AP4M
-  channel, with no human tap. An over-cap voucher reverted on-chain; the kill switch refused.
-- **On our own PaymentLedger with MockRLUSD:** the **₹5,000 family remittance** (still behind the human
-  **Approve** tap). It runs there because our 20 RLUSD AP4M allocation is below the remittance total
-  ($53.76 settled, see [`docs/PROOF.md`](docs/PROOF.md)).
-- **UPI payout is simulated** in both cases.
+- **On the AP4M platform, with AP4M-provided testnet RLUSD:** the agent's **autonomous corridor-quote purchases**.
+  It gets HTTP 402, checks its policy, signs an x402 voucher and pays 0.25 RLUSD per USD→INR quote inside a
+  2 RLUSD AP4M channel, with no human tap (3 purchases, 3 receipts that verify against the chain). Agent and merchant
+  are registered through the AP4M service.
+- **On our own PaymentLedger with MockRLUSD:** the **₹5,000 family remittance**, which always needs the human
+  **Approve** tap. It runs there because our 20 RLUSD AP4M allocation is below the ~54 RLUSD it needs.
+- **UPI payout is SIMULATED** in both cases.
+
+**Who enforces which limit.** The **2 RLUSD AP4M channel cap is enforced on-chain by AP4M's PaymentLedger**: our
+forced over-cap voucher was mined and **reverted** (tx `0xc1ba1b65…e388`, custom error `0xeeaa063e` with args
+3.0 RLUSD requested vs 2.0 cap; we read the name as `VoucherExceedsChannelCap` **from a selector match**, because AP4M
+does not publish the ABI. Reproduce with `npm run decode:revert`). The **approval gate, the ₹/$ per-payment and 24h limits
+and the recipient allow-list are our app's controls**, enforced by our code and our own PaymentLedger, not by AP4M.
+
+**Amounts.** *53.66 RLUSD* = the AP4M lane's prepared (unsent) quote at rate 94.94. *53.76 mRLUSD* = the earlier
+human-approved settlement on our own ledger at rate 94.76. Different runs and ledgers; both are labelled in the proof docs.
+
+**Re-verify the proof (independently re-verified Sun Oct 25 2026, 10:40 AM ET):** `npm run verify:proof` checks every hash
+in both proof docs over the testnet RPC (22 status 1, 2 intentional reverts, 8 IDs that are not transactions).
+
+### Judge quickstart (5 minutes, no keys, no testnet funds)
+
+```bash
+npm ci
+npm test                 # secret scan + contracts 25 + fallback 6 + agent 59 + ap4m/scripts 19 (ap4m part needs Node ≥ 22.13)
+npm run demo:local       # real contracts + EIP-712 vouchers on a local chain: ₹5,000 paid, 3 rejections, on-chain revert
+npm run demo:local:web   # same, then the web app at http://127.0.0.1:3000 (Approve tap, progress, audit, SIMULATED UPI)
+npm run verify:proof     # re-check every proof hash on XRPL EVM testnet (needs network access to the RPC)
+npm run decode:revert    # decode the AP4M over-cap revert (needs network access to the RPC)
+```
+
+If the FX APIs are down the app uses the last good rate (<24h, timestamped), then a static rate labelled
+**"Demo FX rate"** in amber. If the chain RPC is unreachable, the policy **fails closed** (`STATE_UNAVAILABLE`) and the
+UI says so; nothing can be approved until the chain is readable again.
 
 Pitch arc: **WHY → CONTROL → PAY → PROVE → BUILD**
 
@@ -69,7 +97,7 @@ sequenceDiagram
   participant P as Policy
   participant L as PaymentLedger (XRPL EVM testnet)
   H->>A: "Send ₹5,000 to my mother"
-  A->>P: {recipient: mother, total: $57.81}
+  A->>P: {recipient: mother, total: $57.81 at the static demo rate}
   P-->>A: ALLOW (per-tx, 24h, channel, allow-list)
   A-->>H: payment card (nothing has moved)
   H->>A: Approve
@@ -95,7 +123,11 @@ sequenceDiagram
 
 | Piece | Status |
 | --- | --- |
-| Policy engine (per-tx cap, 24h cap, channel cap, allow-list, kill switch) | Real, pure functions, unit-tested at under / at / over |
+| **AP4M lane:** autonomous x402 quote purchases | **Real, on the AP4M hackathon platform**, AP4M-provided testnet RLUSD, AP4M's PaymentLedger / ParticipantRegistry ([proof](docs/AP4M-PROOF.md)) |
+| AP4M 2 RLUSD channel cap | **Real, enforced on-chain by AP4M** (forced over-cap voucher reverted) |
+| AP4M agent / merchant registration | Registered through the AP4M service |
+| **Remittance lane:** ₹5,000 to Mom | **Real testnet transactions on our own PaymentLedger** with MockRLUSD, after a human Approve tap ([proof](docs/PROOF.md)); not on AP4M (20 RLUSD allocation < ~54 needed) |
+| Policy engine (per-tx cap, 24h cap, channel cap, allow-list, kill switch) | Real, our app's controls, pure functions, unit-tested at under / at / over |
 | Approval gate → typed, single-use `ApprovedAction` | Real; rails refuse anything the gate did not mint |
 | EIP-712 voucher signing + on-chain verification | Real |
 | ParticipantRegistry / PaymentLedger on XRPL EVM testnet | Real contracts (ours, AP4M-spec-compatible) |
@@ -109,8 +141,10 @@ sequenceDiagram
 ## What production needs
 
 - A licensed Indian off-ramp / payout partner (RBI-regulated) and the US-side money-transmitter licensing; LRS/FEMA reporting.
-- Sender KYC/AML and sanctions screening; recipient verification beyond a UPI handle.
-- Real RLUSD and Mastercard's official AP4M SDK/contracts (addresses are config here).
+- Sender KYC/AML, sanctions screening and Travel Rule data exchange, with **partner-confirmed coverage** (nothing here
+  provides these today); recipient verification beyond a UPI handle.
+- A remittance-sized AP4M allocation (or production AP4M access) so the remittance itself settles on AP4M, and
+  production RLUSD instead of AP4M-provided testnet RLUSD / MockRLUSD. Contract addresses are config here.
 - Approval on a hardware signer or passkey instead of a web button; key custody in an HSM/KMS.
 - Durable, tamper-evident audit store (append-only DB or on-chain hash anchoring) instead of a local JSONL file.
 - Authenticated multi-user API (the demo server binds to `127.0.0.1` and has no auth).
@@ -124,7 +158,7 @@ Prerequisites: Node 20+ (22 recommended), git, macOS or Linux. No Foundry or nat
 ```bash
 git clone https://github.com/romaldesai/jarvis-xrpl.git && cd jarvis-xrpl
 npm install
-npm test                  # secret scan + 25 contract + 6 fallback + 58 agent tests
+npm test                  # secret scan + 25 contract + 6 fallback + 59 agent + 19 ap4m/script tests
 ```
 
 ### 2. Local demo, no testnet needed (1 command)
@@ -173,9 +207,9 @@ npm run proof              # paste-back block
 Transactions are **legacy (type 0) with an explicit gasPrice** by default because some XRPL EVM testnet setups reject
 EIP-1559 type-2 txs; set `EVM_TX_TYPE=eip1559` to switch.
 
-To fund the channel from the **Mastercard-registered funding wallet** `0xcBcc8c442d312D2D2b4B3d124d268fC235294e2C`
-(balance 0 as of 2026-10-25: fund it at the faucet first), put its key in `FUNDER_PRIVATE_KEY` in your local `.env`
-before step 4. Without it, the agent wallet funds the channel (printed clearly).
+To fund the channel from another wallet (for example the agent wallet `0xcBcc8c442d312D2D2b4B3d124d268fC235294e2C`,
+registered through the AP4M service; it needs testnet gas first), put its key in `FUNDER_PRIVATE_KEY` in your local
+`.env` before step 4. Without it, the agent wallet funds the channel (printed clearly).
 
 To use Mastercard's official contracts when they arrive: set `AP4M_LEDGER_ADDRESS`, `AP4M_REGISTRY_ADDRESS`,
 `RLUSD_ADDRESS`, `AP4M_CHANNEL_ID` (and `RLUSD_DECIMALS`, `RLUSD_LABEL=RLUSD`) in `.env`. If their ABI differs, only
@@ -284,10 +318,11 @@ so two quick taps cannot both slip under the daily cap. Pending approvals expire
 ## Tests
 
 ```bash
-npm test                         # everything below + secret scan
+npm test                         # everything below + secret scan + scripts/run-node-tests.mjs (ap4m + scripts)
 npm test -w contracts            # 25: KYA, cap invariant, bad/tampered sig, wrong chain, wrong ledger, replayed + reused nonce, non-monotonic, expired + zero deadline, revoke, settle delta, pause, close/refund, 6/18 decimals
-npm test -w agent                # 58: money, regex intents, quote rounding (18 + 6 dp), FX chain + cache, policy under/at/over, service end to end, split approve/settle API, kill switch, expiry, single-use, concurrency, restart, corrupt log
+npm test -w agent                # 59: money, regex intents, quote rounding (18 + 6 dp), FX chain + cache, policy under/at/over, service end to end, split approve/settle API, kill switch, expiry, single-use, concurrency, restart, corrupt log
 npm test -w fallback             # 6: testnet-only guard, drops math, guard-before-sign, result codes
+npm run test:node                # 19: ap4m policy (9, Node ≥ 22.13, skipped with a message on older Node), decode-revert (6), verify-proof (4)
 ```
 
 ## Repo layout
@@ -298,8 +333,10 @@ npm test -w fallback             # 6: testnet-only guard, drops math, guard-befo
 | `agent/` | TypeScript agent: intent, quote, policy, approval gate, rails (`evm`, `mock`), audit, kill switch, `api.ts`, CLI scripts |
 | `fallback/` | Native XRPL Testnet rail (xrpl.js) (Lane 3) |
 | `web/` | Next.js demo UI + API routes; server holds keys, browser never does (Lane 2) |
-| `scripts/` | `secret-scan.mjs`, `local-demo.sh`, `testnet-demo.sh` |
-| `docs/PROOF.md` | Confirmed testnet tx hashes (Lane 1, generated by `npm run proof -- --write`) |
+| `ap4m/` | AP4M lane: autonomous x402 buyer, quote merchant, policy + tests, over-cap proof, `decode-revert.mjs` |
+| `scripts/` | `secret-scan.mjs`, `local-demo.sh`, `testnet-demo.sh`, `verify-proof.mjs`, `run-node-tests.mjs` |
+| `docs/PROOF.md` | Remittance lane (own PaymentLedger, MockRLUSD): testnet tx hashes (generated by `npm run proof -- --write`) |
+| `docs/AP4M-PROOF.md` | AP4M lane: x402 purchases, receipts, decoded over-cap revert |
 
 ## Verified facts
 
@@ -315,6 +352,8 @@ npm test -w fallback             # 6: testnet-only guard, drops math, guard-befo
 | FX primary `GET https://api.frankfurter.dev/v2/rate/USD/INR` | `{"base":"USD","quote":"INR","rate":94.76}`, no key | team research | 2026-10-25 |
 | FX backup `GET https://open.er-api.com/v6/latest/USD` | `rates.INR` | team research | 2026-10-25 |
 | XRPL native testnet WS | `wss://s.altnet.rippletest.net:51233` | xrpl.org | 2026-10-24 |
+| All proof hashes in `docs/` | 22 status 1, 2 intentional reverts, 8 IDs (not txs); 3 AP4M receipts verified: true | independent re-check, `npm run verify:proof` | 2026-10-25 10:40 ET |
+| AP4M over-cap revert `0xc1ba1b65…e388` | selector `0xeeaa063e`, args (3e18, 2e18); name `VoucherExceedsChannelCap` inferred by selector match (ABI unpublished) | `npm run decode:revert` | 2026-10-25 |
 
 ## Decisions
 

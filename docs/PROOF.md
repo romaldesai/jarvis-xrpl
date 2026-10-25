@@ -2,6 +2,11 @@
 
 Generated 2026-10-24T17:52:52.842Z by `npm run proof`. Public data only.
 
+> **Scope:** this file is the **human-approved ₹5,000 remittance on our own PaymentLedger with MockRLUSD (mRLUSD)**,
+> not the AP4M platform. Each payment below is **$53.76 = 53.76 mRLUSD** at rate **94.76** (Oct 24). The AP4M lane's
+> 53.66 RLUSD figure is a different run at rate 94.94; see [`AP4M-PROOF.md`](AP4M-PROOF.md). Independently re-verified
+> Sun Oct 25 2026, 10:40 AM ET (`npm run verify:proof`).
+
 ## Contracts
 
 | Contract | Address |

@@ -227,6 +227,7 @@ export default function Home() {
 
       <section className="panel" style={{ marginBottom: 18 }}>
         <h3>Control · the agent can never exceed these</h3>
+        <div className="muted" style={{ marginBottom: 10, fontSize: 12.5 }}>XRP2India&apos;s own controls for the family remittance (approval gate, limits, allow-list) on our PaymentLedger; every payment waits for your Approve tap.</div>
         <div className="control">
           <div className="stat">
             <div className="k">Prefunded channel remaining (on-chain cap)</div>
@@ -354,6 +355,7 @@ export default function Home() {
       <section className="panel ap4m" style={{ marginTop: 18 }}>
         <h3>Autonomous micro-payments · Mastercard AP4M (live)</h3>
         <div className="muted" style={{ marginBottom: 10 }}>Small machine purchases run autonomously inside a funded cap. Sending money to family always waits for your tap.</div>
+        <div className="muted" style={{ marginBottom: 10, fontSize: 12.5 }}>AP4M-provided testnet RLUSD · 2 RLUSD cap enforced on-chain by AP4M&apos;s PaymentLedger · agent and merchant registered through the AP4M service.</div>
         <div className="ap4m-meta">
           <span>Team <b>{AP4M_PROOF.team}</b></span>
           <span>Agent <span className="mono" title={AP4M_PROOF.agent}>{addr(AP4M_PROOF.agent)}</span></span>
@@ -371,6 +373,7 @@ export default function Home() {
         ))}
         <div className="ap4m-row">
           <span className="bad">✕ {AP4M_PROOF.overCap.label}</span>
+          <span className="muted" title="Name inferred from selector match; AP4M does not publish the PaymentLedger ABI">error 0xeeaa063e (3.0 &gt; 2.0 RLUSD)</span>
           <TxLink label="tx" hash={AP4M_PROOF.overCap.tx} />
         </div>
         <div className="ap4m-row">
