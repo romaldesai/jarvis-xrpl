@@ -86,7 +86,9 @@ The agent's audit log is local and gitignored. The event names below are copied 
 
 About the 409: the SDK merchant (`ap4m/ap4m-x402.mjs`) answers 409 `retry_retained_payment` when the channel still has an incomplete payment. That matches what happened here, although the audit line did not record the response body.
 
-The SDK stores the signed payment intent *before* sending it. After the 503, the agent resumed the **same** operation instead of signing a second voucher, so there was no double payment. Only one claim exists for purchase 1.
+The SDK stores the signed payment intent *before* sending it. After the 503, the agent resumed the **same** operation instead of signing a second voucher, so there was no double payment. Only one claim exists for purchase 1. On-chain, the redeem for claim 1 landed in block 9228956 at 04:53:22Z, during the first attempt. The 503 meant the merchant could not yet confirm the outcome, and the 04:54:05Z resume retrieved that same claim rather than paying again. The audit timestamps are when the agent logged each step, not block times.
+
+Rounding: the USD principal is rounded **up** to the cent (`Math.ceil` in `ap4m/agent.mjs`; `ceilDiv` in `agent/src/quote.ts`), so the recipient never gets less than the ₹ amount requested: 5000 / 94.94 = 52.6648… → $52.67, + $0.99 fee = $53.66. The own-ledger run at 94.76 gives 52.7649… → $52.77, + $0.99 = $53.76.
 
 ### Purchase 2 (503 retried automatically)
 
@@ -106,7 +108,7 @@ The SDK stores the signed payment intent *before* sending it. After the 503, the
 04:55:15Z KILL_SWITCH_ACTIVE       ./STOP present → agent refuses to run
 ```
 
-### Purchase 3 (clean)
+### Purchase 3 (stage-format run, clean)
 
 ```
 05:01:32Z http_402_received      price 0.25, channel used 0.5 of 2.0

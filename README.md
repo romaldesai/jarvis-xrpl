@@ -33,6 +33,8 @@ and the recipient allow-list are our app's controls**, enforced by our code and 
 
 **Amounts.** *53.66 RLUSD* = the AP4M lane's prepared (unsent) quote at rate 94.94. *53.76 mRLUSD* = the earlier
 human-approved settlement on our own ledger at rate 94.76. Different runs and ledgers; both are labelled in the proof docs.
+The USD principal is rounded **up** to the cent (5000 / 94.94 = 52.6648… → $52.67; 5000 / 94.76 = 52.7649… → $52.77), plus a $0.99 fee,
+so the recipient never gets less than the ₹ requested.
 
 **Re-verify the proof (independently re-verified Sun Oct 25 2026, 10:40 AM ET):** `npm run verify:proof` checks every hash
 in both proof docs over the testnet RPC (22 status 1, 2 intentional reverts, 8 IDs that are not transactions).

@@ -40,7 +40,7 @@ The agent received HTTP 402, ran `policy.decide()` → `WITHIN_POLICY`, signed a
 | --- | --- | --- | --- | --- |
 | 1 | `0x6a64a7826c8737745fd01504591341c62987073410b3258d2e964054f620c2cd` | `0xedf543c168eaa67c0c83ecf8a70cd62bb66797b1cd4e5afc86cebdb66debcf36` | `0xcf1d7275d9cac23a631f6a78b9ef7395e2abe9a872db95fef37d1c440dccf268` | [claim 0x68d4…bfe4](https://hackathon.ap4m.build/public/evidence/claims/0x68d41ed33036995de7b1340e296e1ebaddd29546cd045cdcb408dfc09efbbfe4/0xb523e912184c31ccd3ad935b0549f5879dc894e86b7e4be8225a4df5e5ea18f0.json): `verify-receipt.mjs` → **verified: true** | <!-- secret-scan:allow: public tx hashes / ids -->
 | 2 | `0x6e2c8cdca92b7a7560bfe604ff638e496fcdbb3d3d0d4d31c7c738110e93c033` | `0xdffda0c0558dec4c82cd33d7bf037c065d162b45f443988439f494e69568cb5c` | `0x49dba42a0d58e7b57da8a52f2ef98e660f5040b322887f2ee90d13feb26d0ebd` | [claim 0xaa43…7c7d](https://hackathon.ap4m.build/public/evidence/claims/0xaa4346fe78b815a533e3cbf48ee7b84fc86fb431bfa63f3351bdcc95d48b7c7d/0x517f57fbc62ea711bb2e416acc0686eee4ac59db10ca75a27ddeb5ddecef15e7.json) | <!-- secret-scan:allow: public tx hashes / ids -->
-| 3 (stage-format rehearsal, 1:10 AM) | `0x1d4e5ae7c337dcc3882e29e88aa3138d78b1f17150ca6974af754df48981c3d9` | `0xbc1ed5c2a905c885bd328f2b24be39f8219e65b73ec12a0f1bc4bd48fd97a142` | `0x89c90f59f9b7d63e9bb70c78445ada5dbd746c596ad5f3c6298b861d8affaa89` | [claim 0xeb32…09ac](https://hackathon.ap4m.build/public/evidence/claims/0xeb32ca31dbc9b9473096d47a526c3bb0e0d441a457ca8d40ccaa4fbef79209ac/0x5865f34c7d680b9ea28479ad1d2e3058871537558e9ee627f58521833350f748.json) | <!-- secret-scan:allow: public tx hashes / ids -->
+| 3 (stage-format run, 1:01 AM ET (block 9229041, 05:01:33Z)) | `0x1d4e5ae7c337dcc3882e29e88aa3138d78b1f17150ca6974af754df48981c3d9` | `0xbc1ed5c2a905c885bd328f2b24be39f8219e65b73ec12a0f1bc4bd48fd97a142` | `0x89c90f59f9b7d63e9bb70c78445ada5dbd746c596ad5f3c6298b861d8affaa89` | [claim 0xeb32…09ac](https://hackathon.ap4m.build/public/evidence/claims/0xeb32ca31dbc9b9473096d47a526c3bb0e0d441a457ca8d40ccaa4fbef79209ac/0x5865f34c7d680b9ea28479ad1d2e3058871537558e9ee627f58521833350f748.json) | <!-- secret-scan:allow: public tx hashes / ids -->
 
 All nine transactions: status 1.
 
@@ -51,6 +51,8 @@ Quote bought: USD→INR 94.94 (Frankfurter/ECB reference rate). The agent then *
 > (Oct 25). **53.76 mRLUSD** in [`PROOF.md`](PROOF.md) is an *earlier, human-approved settlement* on **our own
 > PaymentLedger with MockRLUSD** at rate **94.76** (Oct 24). Different runs, different FX rates, different ledgers.
 > The remittance is not run on AP4M because our 20 RLUSD AP4M allocation is below the ~54 RLUSD it needs.
+> **Rounding:** the USD principal is rounded **up** to the cent (`Math.ceil` / `ceilDiv`), so the recipient never gets less
+> than the ₹ requested: 5000 / 94.94 = 52.6648… → $52.67 + $0.99 = $53.66; 5000 / 94.76 = 52.7649… → $52.77 + $0.99 = $53.76.
 
 ## REJECTED
 
