@@ -12,7 +12,7 @@ type Budget = {
 };
 type RailInfo = { name: string; network: string; explorerUrl: string | null; simulatedChain: boolean; agentAddress?: string; ledger?: string; channelId?: string };
 type Status = { rail: RailInfo; killed: boolean; budget: Budget; llm: boolean };
-type Quote = { inr: string; usd: string; fee: string; total: string; rlusd: string; rate: string; rateSource: string; rateAsOf: string };
+type Quote = { inr: string; usd: string; fee: string; total: string; rlusd: string; rate: string; rateSource: string; rateLabel?: string; rateAsOf: string };
 type Card = {
   id: string | null;
   status: "awaiting_approval" | "denied" | "not_understood";
@@ -81,16 +81,20 @@ export default function Home() {
   const chatRef = useRef<HTMLDivElement>(null);
 
   const refresh = useCallback(async () => {
-    const r = await fetch("/api/status", { cache: "no-store" });
-    const j = await r.json();
-    if (j.setupError) {
-      setSetupError(`${j.setupError}. ${j.hint ?? ""}`);
-      return;
+    try {
+      const r = await fetch("/api/status", { cache: "no-store" });
+      const j = await r.json();
+      if (j.setupError) {
+        setSetupError(`${j.setupError}. ${j.hint ?? ""}`);
+        return;
+      }
+      setSetupError(null);
+      setStatus(j);
+      const a = await fetch("/api/audit", { cache: "no-store" }).then((x) => x.json());
+      setAudit(a.events ?? []);
+    } catch (e) {
+      setSetupError(`Agent server unreachable (${(e as Error).message}). Is \`npm run dev\` running?`);
     }
-    setSetupError(null);
-    setStatus(j);
-    const a = await fetch("/api/audit", { cache: "no-store" }).then((x) => x.json());
-    setAudit(a.events ?? []);
   }, []);
 
   useEffect(() => {
@@ -110,8 +114,9 @@ export default function Home() {
     setMsgs((m) => [...m, { who: "user", text }]);
     try {
       const r = await fetch("/api/prepare", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });
-      const c: Card & { setupError?: string } = await r.json();
+      const c: Card & { setupError?: string; error?: string } = await r.json();
       if (c.setupError) throw new Error(c.setupError);
+      if (c.error) throw new Error(c.error);
       setCard(c);
       if (c.status === "awaiting_approval")
         setMsgs((m) => [...m, { who: "agent", text: `I prepared ${c.quote?.inr} for your ${c.recipient} (${c.upiMasked}). Policy check passed. Nothing moves until you tap Approve.` }]);
@@ -129,49 +134,67 @@ export default function Home() {
     if (!card?.id) return;
     setBusy(true);
     setProgress({ at: 0, failed: false, hashes: {} });
-    const res = await fetch("/api/approve", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: card.id }) });
-    const reader = res.body!.getReader();
-    const dec = new TextDecoder();
-    let buf = "";
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      let nl;
-      while ((nl = buf.indexOf("\n")) >= 0) {
-        const line = buf.slice(0, nl);
-        buf = buf.slice(nl + 1);
-        if (!line.trim()) continue;
-        const o = JSON.parse(line);
-        if (o.step) setProgress((p) => ({ at: Math.max(p?.at ?? 0, ORDER[o.step] ?? 0), failed: false, hashes: o.txHash ? { ...(p?.hashes ?? {}), [o.step]: o.txHash } : p?.hashes ?? {} }));
-        if (o.result) {
-          const r: Result = o.result;
-          setResult(r);
-          if (r.ok) {
-            setProgress((p) => ({ at: 99, failed: false, hashes: p?.hashes ?? {} }));
-            setMsgs((m) => [...m, { who: "agent", text: `Settled ${r.settlement?.amountDisplay}. ${r.payout?.amountInr} on its way to ${r.payout?.upiMasked} (SIMULATED UPI).` }]);
-          } else {
-            setProgress((p) => ({ at: p?.at ?? 0, failed: true, hashes: p?.hashes ?? {} }));
-            setMsgs((m) => [...m, { who: "agent", deny: true, text: `Not sent [${r.rule}]: ${r.error}` }]);
-          }
+    let gotResult = false;
+    const handle = (line: string) => {
+      if (!line.trim()) return;
+      const o = JSON.parse(line);
+      if (o.step) setProgress((p) => ({ at: Math.max(p?.at ?? 0, ORDER[o.step] ?? 0), failed: false, hashes: o.txHash ? { ...(p?.hashes ?? {}), [o.step]: o.txHash } : p?.hashes ?? {} }));
+      if (o.setupError || o.error) throw new Error(o.setupError ?? o.error);
+      if (o.result) {
+        gotResult = true;
+        const r: Result = o.result;
+        setResult(r);
+        if (r.ok) {
+          setProgress((p) => ({ at: 99, failed: false, hashes: p?.hashes ?? {} }));
+          setMsgs((m) => [...m, { who: "agent", text: `Settled ${r.settlement?.amountDisplay}. ${r.payout?.amountInr} on its way to ${r.payout?.upiMasked} (SIMULATED UPI).` }]);
+        } else {
+          setProgress((p) => ({ at: p?.at ?? 0, failed: true, hashes: p?.hashes ?? {} }));
+          setMsgs((m) => [...m, { who: "agent", deny: true, text: `Not sent [${r.rule}]: ${r.error}` }]);
         }
       }
+    };
+    try {
+      const res = await fetch("/api/approve", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: card.id }) });
+      if (!res.body) throw new Error(`HTTP ${res.status}`);
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let nl;
+        while ((nl = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, nl);
+          buf = buf.slice(nl + 1);
+          handle(line);
+        }
+      }
+      handle(buf + dec.decode());
+      if (!gotResult) throw new Error(`no result from server (HTTP ${res.status})`);
+    } catch (e) {
+      // Connection lost or server error: say so. If a redeem tx was already sent, the audit log and explorer show it.
+      setProgress((p) => ({ at: p?.at ?? 0, failed: true, hashes: p?.hashes ?? {} }));
+      setMsgs((m) => [...m, { who: "agent", deny: true, text: `Approval did not complete: ${(e as Error).message}. Check the audit log below before retrying.` }]);
+    } finally {
+      setCard(null);
+      setBusy(false);
+      refresh();
     }
-    setCard(null);
-    setBusy(false);
-    refresh();
   }
 
   async function reject() {
     if (!card?.id) return;
-    await fetch("/api/reject", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: card.id }) });
+    // Nothing moves without Approve, so a failed reject call still leaves the payment unsent (it expires in 10 min).
+    await fetch("/api/reject", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: card.id }) }).catch(() => undefined);
     setMsgs((m) => [...m, { who: "agent", text: "Rejected. Nothing moved." }]);
     setCard(null);
     refresh();
   }
 
   async function toggleKill() {
-    await fetch("/api/kill", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ on: !status?.killed }) });
+    const ok = await fetch("/api/kill", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ on: !status?.killed }) }).then((r) => r.ok, () => false);
+    if (!ok) setMsgs((m) => [...m, { who: "agent", deny: true, text: "Kill switch request failed. The badge shows the real state; use `npm run kill -- on` as a backup." }]);
     refresh();
   }
 
@@ -252,7 +275,7 @@ export default function Home() {
                 <div className="row"><span className="l">Principal</span><span>{card.quote.usd}</span></div>
                 <div className="row"><span className="l">Fee</span><span>{card.quote.fee}</span></div>
                 <div className="row"><span className="l">You pay</span><span><b>{card.quote.total}</b> = {card.quote.rlusd}</span></div>
-                <div className="row"><span className="l">Rate</span><span>{card.quote.rate} <span className="muted">({card.quote.rateSource})</span></span></div>
+                <div className="row"><span className="l">Rate</span><span>{card.quote.rate} <span className={`muted ${card.quote.rateSource === "demo" ? "warn" : ""}`}>({card.quote.rateLabel ?? card.quote.rateSource})</span></span></div>
                 <div className={`policy ${card.decision.allow ? "ok" : "bad"}`}>
                   {card.decision.allow ? "✓" : "✕"} Policy [{card.decision.rule}] {card.decision.reason}
                 </div>

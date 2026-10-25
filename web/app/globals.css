@@ -97,3 +97,4 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .ap4m-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding: 6px 0; border-top: 1px dashed var(--line); font-size: 13px; }
 .ap4m-row .ok { color: var(--ok); }
 .ap4m-row .bad { color: var(--bad); }
+.muted.warn { color: var(--warn); }

@@ -11,5 +11,10 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as { text?: unknown };
   const text = typeof body.text === "string" ? body.text.slice(0, 500) : "";
   if (!text.trim()) return json({ error: "empty message" }, 400);
-  return json(await a.prepare(text));
+  try {
+    return json(await a.prepare(text));
+  } catch (e) {
+    // Fail closed with a readable message (nothing was prepared, nothing moved).
+    return json({ error: `Could not prepare payment: ${(e instanceof Error ? e.message : String(e)).slice(0, 200)}` }, 500);
+  }
 }

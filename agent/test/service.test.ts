@@ -107,6 +107,17 @@ describe("RemittanceAgent end to end (mock rail)", () => {
     expect(t.audit.read().some((e) => e.event === "reject")).toBe(true);
   });
 
+  it("progress stream: 'approved' is emitted once on success and never for a refused approval", async () => {
+    const card = await t.agent.prepare("Send ₹5,000 to my mother");
+    const ok: string[] = [];
+    expect((await t.agent.approve(card.id!, (s) => ok.push(s))).ok).toBe(true);
+    expect(ok.filter((s) => s === "approved")).toHaveLength(1);
+    expect(ok[0]).toBe("approved");
+    const replay: string[] = [];
+    expect((await t.agent.approve(card.id!, (s) => replay.push(s))).rule).toBe("UNKNOWN_OR_USED");
+    expect(replay).toEqual([]);
+  });
+
   it("concurrent approvals cannot jointly exceed the daily cap", async () => {
     const ids: string[] = [];
     for (let i = 0; i < 5; i++) ids.push((await t.agent.prepare("Send ₹5,000 to my mother")).id!);

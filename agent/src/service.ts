@@ -303,8 +303,8 @@ export class RemittanceAgent {
   async approve(id: string, onStep?: (step: string, d?: Record<string, unknown>) => void): Promise<ApproveResult> {
     let action: ApprovedAction;
     try {
-      onStep?.("approved");
       action = await this.approveAction(id);
+      onStep?.("approved"); // only after the gate minted the ApprovedAction
     } catch (e) {
       const err = e as ApprovalError;
       return { ok: false, id, rule: err.rule ?? "ERROR", error: err.message, budget: await this.budget() };
