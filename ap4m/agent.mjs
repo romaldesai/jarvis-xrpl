@@ -40,7 +40,7 @@ async function main() {
   const ledger = config.contracts?.paymentLedger || config.paymentLedger || process.env.PAYMENT_LEDGER;
   const context = await loadX402Context(API);
   const out = { agent: wallet.address, merchantId: MERCHANT_ID, team: TEAM, steps: [] };
-  const step = (name, data = {}) => { out.steps.push({ name, at: new Date().toISOString(), ...data }); audit(AUDIT, { name, ...data }); console.log(`• ${name}`, Object.keys(data).length ? JSON.stringify(data) : ''); };
+  const step = (name, data = {}) => { out.steps.push({ name, at: new Date().toISOString(), ...data }); audit(AUDIT, { name, ...data }); say(name, data, wallet.address); };
 
   if (killSwitchOn(policy)) { step('KILL_SWITCH_ACTIVE', { file: policy.killSwitchFile }); return; }
 
@@ -120,6 +120,28 @@ async function main() {
     step('channel_closed', { tx: closed.tx_hash });
   }
   writeOut(out);
+}
+
+const X = 'https://explorer.testnet.xrplevm.org/tx/';
+const short = (h) => (h ? `${h.slice(0, 6)}…${h.slice(-4)}` : '');
+// Human-readable stage output (the JSONL audit keeps the full record).
+function say(name, d, agent) {
+  if (process.env.RAW_LOG === '1') return console.log(`• ${name}`, JSON.stringify(d));
+  const lines = {
+    KILL_SWITCH_ACTIVE: () => `[CONTROL] Kill switch is ON (${d.file}). Nothing signed, nothing sent.`,
+    signed_in: () => `[CONTROL] Signed in to Mastercard AP4M as KYA-registered agent ${short(agent)} (team ${TEAM})`,
+    channel_opened: () => `[CONTROL] Opened funded channel ${short(d.channelId)} with a hard cap of ${d.capRlusd} RLUSD`,
+    channel_reused: () => `[CONTROL] Using funded channel ${short(d.channelId)} (cap ${d.capRlusd} RLUSD, enforced by PaymentLedger)`,
+    http_402_received: () => `[PAY]     Merchant replied HTTP 402 Payment Required: ${d.priceRlusd} RLUSD for a USD→INR corridor quote\n          Channel so far: ${d.redeemedRlusd} of ${d.capRlusd} RLUSD used`,
+    policy_decision: () => d.allow ? `[POLICY]  ALLOW: allowlisted merchant, under 0.50 RLUSD ceiling, inside cap. No human needed for this.` : `[POLICY]  REFUSE: ${d.reason}`,
+    resuming_unfinished_purchase: () => `[PAY]     Resuming the same signed voucher (${d.operation}); it cannot be paid twice`,
+    merchant_busy_retrying: () => `[PAY]     Merchant waiting for next block, retrying (${d.attempt})…`,
+    voucher_signed_and_redeemed: () => `[PAY]     EIP-712 voucher signed locally → merchant redeemed it on-chain → quote released\n          VoucherRedeemed: ${X}${d.redeemTx}`,
+    rlusd_settled_to_merchant: () => `[PROOF]   ${d.amountRlusd} RLUSD paid to merchant (ClaimPaid):   ${X}${d.payoutTx}\n          SettlementRecorded:                    ${X}${d.settlementTx}\n          Verifiable receipt: ${d.receipt}`,
+    remittance_prepared_awaiting_user_tap: () => `[QUOTE]   USD→INR ${d.rate}. ₹${d.sendInr} to Mom = $${d.principalUsd} + $${d.feeUsd} fee = $${d.totalUsd}\n[HUMAN]   Family remittance prepared. Waiting for YOUR Approve tap. The agent will not send it alone.`,
+    channel_closed: () => `[CONTROL] Channel closed: ${X}${d.tx}`,
+  };
+  console.log((lines[name] ?? (() => `• ${name} ${JSON.stringify(d)}`))());
 }
 
 function writeOut(out) {
