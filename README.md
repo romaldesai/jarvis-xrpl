@@ -39,7 +39,7 @@ in both proof docs over the testnet RPC (22 status 1, 2 intentional reverts, 8 I
 
 ```bash
 npm ci
-npm test                 # secret scan + contracts 25 + fallback 6 + agent 60 + ap4m/scripts 19 (ap4m part needs Node ≥ 22.13)
+npm test                 # secret scan + contracts 25 + fallback 6 + agent 60 + web 13 + ap4m/scripts 21 (ap4m part needs Node ≥ 22.13)
 npm run demo:local       # real contracts + EIP-712 vouchers on a local chain: ₹5,000 paid, 3 rejections, on-chain revert
 npm run demo:local:web   # same, then the web app at http://127.0.0.1:3000 (Approve tap, progress, audit, SIMULATED UPI)
 npm run verify:proof     # re-check every proof hash on XRPL EVM testnet (needs network access to the RPC)
@@ -159,7 +159,7 @@ Prerequisites: Node 20+ (22 recommended), git, macOS or Linux. No Foundry or nat
 ```bash
 git clone https://github.com/romaldesai/jarvis-xrpl.git && cd jarvis-xrpl
 npm install
-npm test                  # secret scan + 25 contract + 6 fallback + 60 agent + 19 ap4m/script tests
+npm test                  # secret scan + 25 contract + 6 fallback + 60 agent + 13 web + 21 ap4m/script tests
 ```
 
 ### 2. Local demo, no testnet needed (1 command)
@@ -323,7 +323,8 @@ npm test                         # everything below + secret scan + scripts/run-
 npm test -w contracts            # 25: KYA, cap invariant, bad/tampered sig, wrong chain, wrong ledger, replayed + reused nonce, non-monotonic, expired + zero deadline, revoke, settle delta, pause, close/refund, 6/18 decimals
 npm test -w agent                # 60: money, regex intents, quote rounding (18 + 6 dp), FX chain + cache, policy under/at/over, service end to end, split approve/settle API, kill switch, expiry, single-use, concurrency, restart, corrupt log
 npm test -w fallback             # 6: testnet-only guard, drops math, guard-before-sign, result codes
-npm run test:node                # 19: ap4m policy (9, Node ≥ 22.13, skipped with a message on older Node), decode-revert (6), verify-proof (4)
+npm test -w web                  # 13: API route handlers (prepare/approve/reject/kill) on the mock rail: happy path, ₹50,000 denied, bad/unknown/replayed id, kill switch, chain down
+npm run test:node                # 21: ap4m policy (9, Node ≥ 22.13, skipped with a message on older Node), decode-revert (6), verify-proof (6)
 ```
 
 ## Repo layout
