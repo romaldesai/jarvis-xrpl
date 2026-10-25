@@ -13,7 +13,7 @@
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
     "secret-scan": "node scripts/secret-scan.mjs --all",
-    "test": "npm run secret-scan && npm test --workspaces --if-present",
+    "test": "npm run secret-scan && npm test --workspaces --if-present && node scripts/run-node-tests.mjs",
     "demo:local": "./scripts/local-demo.sh",
     "demo:local:web": "./scripts/local-demo.sh --web",
     "demo:headless": "tsx agent/scripts/demo-headless.ts --guardrails",
@@ -26,7 +26,10 @@
     "testnet": "./scripts/testnet-demo.sh",
     "check": "npm run -s check:testnet -w contracts",
     "proof": "tsx agent/scripts/proof.ts",
-    "prove:overcap": "npm run -s prove:overcap -w contracts"
+    "prove:overcap": "npm run -s prove:overcap -w contracts",
+    "test:node": "node scripts/run-node-tests.mjs",
+    "verify:proof": "node scripts/verify-proof.mjs",
+    "decode:revert": "node ap4m/decode-revert.mjs"
   },
   "engines": {
     "node": ">=20"
