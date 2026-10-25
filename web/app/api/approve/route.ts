@@ -15,7 +15,6 @@ export async function POST(req: Request) {
   const stream = new ReadableStream({
     async start(ctl) {
       const send = (o: unknown) => ctl.enqueue(enc.encode(JSON.stringify(o) + "\n"));
-      send({ step: "approved" });
       const result = await a.approve(id, (step, d) => send({ step, ...(d ?? {}) }));
       send({ result });
       ctl.close();

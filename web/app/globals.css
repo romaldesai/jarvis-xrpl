@@ -92,3 +92,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .stack { display: flex; flex-direction: column; gap: 18px; }
 .muted { color: var(--muted); }
 .grid > *, .stack > * { min-width: 0; }
+.ap4m-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
+.ap4m-meta b { color: var(--text); }
+.ap4m-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding: 6px 0; border-top: 1px dashed var(--line); font-size: 13px; }
+.ap4m-row .ok { color: var(--ok); }
+.ap4m-row .bad { color: var(--bad); }

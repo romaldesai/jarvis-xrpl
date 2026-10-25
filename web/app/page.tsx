@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AP4M_EXPLORER_TX, AP4M_PROOF } from "@/lib/ap4m-proof";
 
 type Budget = {
   perTxCapCents: string;
@@ -61,7 +62,11 @@ const fmtArg = (k: string, v: string) => {
   return short(v);
 };
 const short = (h: string) => (h.length > 20 ? `${h.slice(0, 10)}…${h.slice(-8)}` : h);
-const EXAMPLES = ["Send ₹5,000 to my mother in India", "Send ₹10,000 to my brother", "Send $25 to bhai", "Send ₹500 to my landlord"];
+const addr = (h: string) => `${h.slice(0, 6)}…${h.slice(-4)}`;
+const TxLink = ({ label, hash }: { label: string; hash: string }) => (
+  <a className="mono" href={AP4M_EXPLORER_TX + hash} target="_blank" rel="noreferrer" title={hash}>{label} {short(hash)}</a>
+);
+const EXAMPLES = ["Send ₹5,000 to my mother in India", "Send ₹50,000 to my mother in India", "Send $25 to bhai", "Send ₹500 to my landlord"];
 
 export default function Home() {
   const [status, setStatus] = useState<Status | null>(null);
@@ -322,6 +327,33 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      <section className="panel ap4m" style={{ marginTop: 18 }}>
+        <h3>Autonomous micro-payments · Mastercard AP4M (live)</h3>
+        <div className="muted" style={{ marginBottom: 10 }}>Small machine purchases run autonomously inside a funded cap. Sending money to family always waits for your tap.</div>
+        <div className="ap4m-meta">
+          <span>Team <b>{AP4M_PROOF.team}</b></span>
+          <span>Agent <span className="mono" title={AP4M_PROOF.agent}>{addr(AP4M_PROOF.agent)}</span></span>
+          <span>Merchant payout <span className="mono" title={AP4M_PROOF.merchantPayout}>{addr(AP4M_PROOF.merchantPayout)}</span></span>
+          <span>Channel <span className="mono" title={AP4M_PROOF.channelId}>{`${AP4M_PROOF.channelId.slice(0, 10)}…${AP4M_PROOF.channelId.slice(-4)}`}</span> · cap <b>{AP4M_PROOF.channelCap}</b></span>
+        </div>
+        {AP4M_PROOF.purchases.map((p) => (
+          <div className="ap4m-row" key={p.n}>
+            <span className="ok">✓ Quote purchase #{p.n} · {p.amount}</span>
+            <TxLink label="redeem" hash={p.redeemTx} />
+            <TxLink label="payout" hash={p.payoutTx} />
+            <TxLink label="settle" hash={p.settlementTx} />
+            <a href={p.receiptUrl} target="_blank" rel="noreferrer">receipt</a>
+          </div>
+        ))}
+        <div className="ap4m-row">
+          <span className="bad">✕ {AP4M_PROOF.overCap.label}</span>
+          <TxLink label="tx" hash={AP4M_PROOF.overCap.tx} />
+        </div>
+        <div className="ap4m-row">
+          <span className="bad">✕ {AP4M_PROOF.killSwitch.label}</span>
+        </div>
+      </section>
 
       <section className="panel" style={{ marginTop: 18 }}>
         <h3>Audit log · append-only audit.jsonl (newest first)</h3>

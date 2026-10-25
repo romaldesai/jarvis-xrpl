@@ -10,6 +10,18 @@ UPI payout screen shows what the recipient would see.
 
 > Team RomsCoin (solo). Testnet only. Nothing here touches mainnet or real money.
 
+## Mastercard AP4M (live platform)
+
+Code: [`ap4m/README.md`](ap4m/README.md) · Proof with tx hashes: [`docs/AP4M-PROOF.md`](docs/AP4M-PROOF.md)
+
+- **On AP4M RLUSD (real AP4M platform):** the agent's **autonomous corridor-quote purchases**. It hits an
+  HTTP 402, checks policy, signs an x402 voucher and pays 0.25 RLUSD per USD→INR quote inside a 2 RLUSD AP4M
+  channel, with no human tap. An over-cap voucher reverted on-chain; the kill switch refused.
+- **On our own PaymentLedger with MockRLUSD:** the **₹5,000 family remittance** (still behind the human
+  **Approve** tap). It runs there because our 20 RLUSD AP4M allocation is below the remittance total
+  ($53.76 settled, see [`docs/PROOF.md`](docs/PROOF.md)).
+- **UPI payout is simulated** in both cases.
+
 Pitch arc: **WHY → CONTROL → PAY → PROVE → BUILD**
 
 ## The problem (WHY)
