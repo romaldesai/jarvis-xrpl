@@ -151,6 +151,17 @@ describe("RemittanceAgent end to end (mock rail)", () => {
     expect(() => t.audit.append({ event: "prepare", privateKey: "x" } as any)).toThrow(/refusing/);
   });
 
+  it("chain RPC down fails closed: no new card, and a prepared payment cannot be approved", async () => {
+    const card = await t.agent.prepare("Send ₹5,000 to my mother");
+    expect(card.status).toBe("awaiting_approval");
+    t.rail.channelState = async () => { throw new Error("ECONNREFUSED rpc"); };
+    expect((await t.agent.prepare("Send ₹5,000 to my mother")).decision.rule).toBe("STATE_UNAVAILABLE");
+    const res = await t.agent.approve(card.id!);
+    expect(res.ok).toBe(false);
+    expect(res.rule).toBe("STATE_UNAVAILABLE");
+    expect(t.audit.read().some((e) => e.event === "redeem")).toBe(false);
+  });
+
   it("corrupt audit log fails closed", async () => {
     fs.appendFileSync(t.env.AUDIT_LOG_PATH, "{not json\n");
     expect((await t.agent.prepare("Send ₹5,000 to my mother")).decision.rule).toBe("STATE_UNAVAILABLE");

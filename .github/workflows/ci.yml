@@ -11,3 +11,7 @@ jobs:
       - run: node scripts/secret-scan.mjs --all
       - run: npm ci
       - run: npm test
+      - run: npm run typecheck -w agent
+      - run: npm run typecheck -w fallback
+      - run: npm run typecheck -w web
+      - run: npm run build -w web
