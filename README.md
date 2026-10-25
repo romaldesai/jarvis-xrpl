@@ -146,6 +146,7 @@ sequenceDiagram
 - A remittance-sized AP4M allocation (or production AP4M access) so the remittance itself settles on AP4M, and
   production RLUSD instead of AP4M-provided testnet RLUSD / MockRLUSD. Contract addresses are config here.
 - Approval on a hardware signer or passkey instead of a web button; key custody in an HSM/KMS.
+- Separate admin / voucher-signer / relayer keys (HSM or MPC); the demo uses one testnet key for all three.
 - Durable, tamper-evident audit store (append-only DB or on-chain hash anchoring) instead of a local JSONL file.
 - Authenticated multi-user API (the demo server binds to `127.0.0.1` and has no auth).
 
@@ -287,7 +288,7 @@ Checked in this order; the first failing rule wins and is named in the UI and th
 | Rule | Checks | When it trips |
 | --- | --- | --- |
 | `KILL_SWITCH` | `KILL_SWITCH` env or `killswitch.flag` file | Everything blocked, including already-prepared payments at approve time |
-| `STATE_UNAVAILABLE` | Audit log readable, chain reachable | Fails closed |
+| `STATE_UNAVAILABLE` | Chain/RPC reachable, audit log readable | Fails closed: "Chain/RPC unreachable (or audit log unreadable)" |
 | `INVALID_AMOUNT` / `NO_RECIPIENT` | Positive integer amount, recipient present | Denied |
 | `RECIPIENT_NOT_ALLOWED` | Recipient alias in `POLICY_ALLOWED_RECIPIENTS` | Denied |
 | `PER_TX_CAP` | total (principal + fee) ≤ `POLICY_PER_TX_CAP_USD_CENTS` (default $100) | Denied |

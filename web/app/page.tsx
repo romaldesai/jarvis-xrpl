@@ -364,7 +364,7 @@ export default function Home() {
         </div>
         {AP4M_PROOF.purchases.map((p) => (
           <div className="ap4m-row" key={p.n}>
-            <span className="ok">✓ Quote purchase #{p.n} · {p.amount}</span>
+            <span className="ok">✓ Quote purchase #{p.n} · {p.amount}{p.note ? <span className="muted"> ({p.note})</span> : null}</span>
             <TxLink label="redeem" hash={p.redeemTx} />
             <TxLink label="payout" hash={p.payoutTx} />
             <TxLink label="settle" hash={p.settlementTx} />

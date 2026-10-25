@@ -5,6 +5,8 @@ export const AP4M_EXPLORER_TX = "https://explorer.testnet.xrplevm.org/tx/";
 
 export type Ap4mPurchase = {
   n: number;
+  /** e.g. "rehearsal run", as labelled in docs/AP4M-PROOF.md */
+  note?: string;
   amount: string;
   redeemTx: string; // VoucherRedeemed
   payoutTx: string; // ClaimPaid (RLUSD to merchant)
@@ -47,6 +49,16 @@ export const AP4M_PROOF: Ap4mProof = {
       settlementTx: "0x49dba42a0d58e7b57da8a52f2ef98e660f5040b322887f2ee90d13feb26d0ebd", // secret-scan:allow (public tx hash / id)
       receiptUrl:
         "https://hackathon.ap4m.build/public/evidence/claims/0xaa4346fe78b815a533e3cbf48ee7b84fc86fb431bfa63f3351bdcc95d48b7c7d/0x517f57fbc62ea711bb2e416acc0686eee4ac59db10ca75a27ddeb5ddecef15e7.json", // secret-scan:allow (public tx hash / id)
+    },
+    {
+      n: 3,
+      note: "stage-format rehearsal run",
+      amount: "0.25 RLUSD",
+      redeemTx: "0x1d4e5ae7c337dcc3882e29e88aa3138d78b1f17150ca6974af754df48981c3d9", // secret-scan:allow (public tx hash / id)
+      payoutTx: "0xbc1ed5c2a905c885bd328f2b24be39f8219e65b73ec12a0f1bc4bd48fd97a142", // secret-scan:allow (public tx hash / id)
+      settlementTx: "0x89c90f59f9b7d63e9bb70c78445ada5dbd746c596ad5f3c6298b861d8affaa89", // secret-scan:allow (public tx hash / id)
+      receiptUrl:
+        "https://hackathon.ap4m.build/public/evidence/claims/0xeb32ca31dbc9b9473096d47a526c3bb0e0d441a457ca8d40ccaa4fbef79209ac/0x5865f34c7d680b9ea28479ad1d2e3058871537558e9ee627f58521833350f748.json", // secret-scan:allow (public tx hash / id)
     },
   ],
   overCap: {
